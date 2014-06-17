@@ -24,7 +24,7 @@ if __name__ == "__main__":
 			cmd = "python %s %s %s" % ("launch.py", sName, sConfigFile)
 			subprocess.Popen(cmd)
 		#启动主服务器
-		app = wafer.server.CreateApp("master", dConfig["master"])
+		app = wafer.server.CreateServer("master", dConfig["master"])
 		app.Start()
 	except Exception, e:
 		print "="*20, "Error", "="*20

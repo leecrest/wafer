@@ -24,5 +24,3 @@ TASK_TYPE_SUB		= 2 #支线
 TASK_TYPE_DAY		= 3 #日常
 
 
-
-

@@ -23,9 +23,11 @@ if __name__ == "__main__":
 	try:
 		args = sys.argv
 		#args = ["python" "Name" "config.json"]
-		if len(args) <= 3:
-			raise u"启动参数有误"
-		app = wafer.server.CreateApp(args[1], args[2])
+		if len(args) < 3:
+			print u"启动参数错误：", args
+			raise "args(%s) error" % args
+		dConfig = json.load(open(args[2], "r"))
+		app = wafer.server.CreateServer(args[1], dConfig)
 		app.Start()
 	except Exception, e:
 		print "="*20, "Error", "="*20

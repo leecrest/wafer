@@ -216,13 +216,13 @@ def PackBroadcast(iConnList):
 	CServer().m_NetNode.Broadcast(packet.GetPackData(), iConnList)
 
 
-def CreateApp(sName, dConfig):
+def CreateServer(sName, dConfig):
 	app = CServer()
 	app.InitConfig(sName, dConfig)
 	return app
 
 
 __all__ = ["CServer", "PackSend", "PackBroadcast", "CallRpcClient", "CallRpcServer",
-           "InitNetService", "InitRpcClient", "InitRpcServer"]
+           "InitNetService", "InitRpcClient", "InitRpcServer", "CreateServer"]
 
 
