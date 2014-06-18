@@ -1,8 +1,9 @@
 {
     "root" : "D:\\MyPan\\MyServer\\Demo\\doc",
+    "out" : "D:\\MyPan\\MyServer\\Demo\\trunk\\data",
     "file" : {
         "Task.xlsx" : {
-            "Sheet1" : {"left":0, "right":0, "top":0}
+            "Sheet1" : {"left":0, "right":0, "top":1}
         }
     }
 

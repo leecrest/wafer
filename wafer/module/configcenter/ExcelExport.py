@@ -3,12 +3,18 @@
 @author : leecrest
 @time   : 2014/6/18 8:09
 @brief  : 从Excel文件中导出数值表，以json格式存储到.dat文件中
+
+Excel文件格式如下：
+1、第一列是索引列，一般指ID
+2、第一行是表头，从英文表头起算
+
 """
 
 import os
 import json
 import xlrd
 
+EXPORT_EXT = ".dat"
 
 
 def Export(sConfigFile):
@@ -17,7 +23,9 @@ def Export(sConfigFile):
 	f.close()
 
 	sRoot = dConfig.get("root", "./")
-	print "Export path", sRoot
+	sOut = dConfig.get("out", "./")
+
+	print "Export path:", sRoot
 	dFile = dConfig["file"]
 	for sFile, dSheet in dFile.iteritems():
 		sFull = os.path.join(sRoot, sFile)
@@ -28,20 +36,30 @@ def Export(sConfigFile):
 		oFile = OpenExcel(sFull)
 		if not oFile:
 			continue
+		sName, sExt = os.path.splitext(sFile)
+		sOutDir = os.path.join(sOut, "%s"%sName)
+		if not os.path.exists(sOutDir):
+			os.makedirs(sOutDir)
 		for sSheet, dCfg in dSheet.iteritems():
-			print "\texport", sSheet
+			print "\t export [%s]" % sSheet,
 			iLeft   = dCfg.get("left", 0)
 			iRight  = dCfg.get("right", 0)
 			iTop    = dCfg.get("top", 0)
 			iBottom = dCfg.get("bottom", 0)
 			if (iLeft < 0 or iRight < 0 or iTop < 0 or iBottom < 0 or
-				iLeft > iRight or iBottom > iTop):
+				    (iRight > 0 and iLeft > iRight) or
+				    (iBottom > 0 and iTop > iBottom)):
 				print "Config(%s %s) error" % (sFile, sSheet)
 				continue
 			oSheet = oFile.sheet_by_name(sSheet)
 			if not oSheet:
 				continue
-			ExportSheet(oSheet, iLeft, iRight, iTop, iBottom)
+			sOutSheet = os.path.join(sOutDir, sSheet+EXPORT_EXT)
+			if ExportSheet(sOutSheet, oSheet, iLeft, iRight, iTop, iBottom, ):
+				print " ... ok"
+			else:
+				print " ... fail"
+				return
 
 
 
@@ -54,9 +72,33 @@ def OpenExcel(sFile):
 		print str(e)
 
 
-def ExportSheet(oSheet, iLeft, iRight, iTop, iBottom):
-	print oSheet.row_values(1)
-	print oSheet.col_values(1)
+def ExportSheet(sOutFile, oSheet, iLeft, iRight, iTop, iBottom):
+	if (iLeft >= oSheet.ncols or iRight > oSheet.ncols or
+		iTop >= oSheet.nrows or iBottom > oSheet.nrows):
+		return False
+	if iRight == 0:
+		iRight = oSheet.ncols
+	if iBottom == 0:
+		iBottom = oSheet.nrows
+	#表头
+	sHeadList = oSheet.row_values(iTop)
+
+	data = {}
+	for iRow in xrange(iTop+1, iBottom):
+		sIndex = oSheet.cell(iRow, iLeft).value
+		try:
+			idx = int(sIndex)
+		except Exception, e:
+			idx = sIndex
+		data[idx] = {}
+		for iCol in xrange(iLeft+1, iRight):
+			sValue = oSheet.cell(iRow, iCol).value
+			data[idx][sHeadList[iCol]] = sValue
+
+	json.dump(data, open(sOutFile, "wb"))
+	return True
+
+
 
 
 

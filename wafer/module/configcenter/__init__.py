@@ -37,33 +37,33 @@ class CConfigCenter:
 		"""
 		if self.m_Init:
 			raise "CC.InitConfig should be called first"
-		iType       = dConfig.get("type", RES_TYPE_PATH)
-		bCrypt      = dConfig.get("crypt", False)
-		sPath       = dConfig.get("path", "./")
-		if iType == RES_TYPE_PATH:
-			if not os.path.exists(sPath) or not os.path.isdir(sPath):
-				raise "[CC] path(%s) not existed" % sPath
-			self.m_Type     = iType
-			self.m_Crypt    = bCrypt
-			self.m_Path     = sPath
-			self.m_IncludeExt = dConfig.get("include_ext", ".dat").split(",")
-			self.m_ExcludeExt = dConfig.get("exclude_ext", "").split(",")
-			self.m_IncludeDir = dConfig.get("include_dir", "").split(",")
-			self.m_ExcludeDir = dConfig.get("exclude_dir", "").split(",")
-			self.LoadConfigByPath(self.m_Data, self.m_Path)
-		elif iType == RES_TYPE_PAK:
-			if not os.path.exists(sPath) or not os.path.isfile(sPath):
-				raise "[CC] file(%s) not existed" % sPath
-			self.m_Type     = iType
-			self.m_Crypt    = bCrypt
-			self.m_Path     = sPath
-			self.m_IncludeExt = dConfig.get("include_ext", ".dat").split(",")
-			self.m_ExcludeExt = dConfig.get("exclude_ext", "").split(",")
-			self.m_IncludeDir = dConfig.get("include_dir", "").split(",")
-			self.m_ExcludeDir = dConfig.get("exclude_dir", "").split(",")
-			self.LoadConfigByPak()
+		self.m_Type       = dConfig.get("type", RES_TYPE_PATH)
+		self.m_Path       = dConfig.get("path", "./")
+		if self.m_Type == RES_TYPE_PATH:
+			if not os.path.exists(self.m_Path) or not os.path.isdir(self.m_Path):
+				raise "[CC] path(%s) not existed" % self.m_Path
+		elif self.m_Type == RES_TYPE_PAK:
+			if not os.path.exists(self.m_Path) or not os.path.isfile(self.m_Path):
+				raise "[CC] file(%s) not existed" % self.m_Path
 		else:
-			raise "[CC]Error ResType(%d)" % self.m_ResType
+			raise "[CC]Error ResType(%d)" % self.m_Type
+
+		self.m_Crypt      = dConfig.get("crypt", False)
+		self.m_IncludeExt = dConfig.get("include_ext", ".dat").split(",")
+		sValue = dConfig.get("exclude_ext", "")
+		if sValue:
+			self.m_ExcludeExt = sValue.split(",")
+		sValue = dConfig.get("include_dir", "")
+		if sValue:
+			self.m_IncludeDir = sValue.split(",")
+		sValue = dConfig.get("exclude_dir", "")
+		if sValue:
+			self.m_ExcludeDir = sValue.split(",")
+
+		if self.m_Type == RES_TYPE_PATH:
+			self.m_Data = self.LoadConfigByPath(self.m_Path)
+		elif self.m_Type == RES_TYPE_PAK:
+			self.m_Data = self.LoadConfigByPak()
 
 
 	def ValidFile(self, sExt):
@@ -82,7 +82,7 @@ class CConfigCenter:
 		return sDir in self.m_IncludeDir
 
 
-	def LoadConfigByPath(self, dData, sRoot):
+	def LoadConfigByPath(self, sRoot):
 		"""
 		加载指定目录下的资源文件到内存中
 		@dData，dict，资源的存储地址
@@ -91,21 +91,22 @@ class CConfigCenter:
 		dData = {}
 		for sPath in os.listdir(sRoot):
 			sFull = os.path.join(sRoot, sPath)
-			sName, sExt = os.path.splitext(sPath)
-			if os.path.isfile(sFull) and self.ValidFile(sExt):
-				dData[sName] = self.LoadFile(sFull)
-			elif os.path.isdir(sFull) and self.ValidDir(sName):
-				dData[sName] = {}
-				self.LoadConfigByPath(dData[sName], sFull)
+			if os.path.isfile(sFull):
+				sName, sExt = os.path.splitext(sPath)
+				if self.ValidFile(sExt):
+					dData[sName] = self.LoadFile(sFull)
+			elif os.path.isdir(sFull) and self.ValidDir(sPath):
+				dData[sPath] = self.LoadConfigByPath(sFull)
+		return dData
 
 
 	def LoadConfigByPak(self):
 		"""
 		加载指定的数据包文件
 		"""
-		self.m_Data = {}
+		dData = {}
 		#等待添加
-
+		return dData
 
 
 
@@ -134,3 +135,10 @@ class CConfigCenter:
 		return dData
 
 
+
+
+if __name__ == "__main__":
+	cc = CConfigCenter()
+	cc.InitConfig({"path":"D:\\MyPan\\MyServer\\Demo\\trunk\\data"})
+	print cc.m_Data
+	print cc.Query("Task.Sheet1")
