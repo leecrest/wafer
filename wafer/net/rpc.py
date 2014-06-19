@@ -19,12 +19,13 @@ if not "g_ClientDict" in globals():
 	g_ClientDict = {}
 
 
-def CreateRpcClient(sName):
+def CreateRpcClient(sClientName, sServerName):
 	global g_ClientDict
-	if sName in g_ClientDict:
-		raise "CreateRpcClient err, %s is existed!" % sName
-	oClient = CRpcClient(sName)
-	g_ClientDict[sName] = oClient
+	if sServerName in g_ClientDict:
+		print "CreateRpcClient err, %s is existed in %s!" % (sServerName, g_ClientDict.keys())
+		raise "ERROR"
+	oClient = CRpcClient(sClientName, sServerName)
+	g_ClientDict[sServerName] = oClient
 	return oClient
 
 
@@ -52,7 +53,7 @@ def ConnectServerSuccess(oRemote, sName):
 	oClient = g_ClientDict.get(sName, None)
 	if not oClient:
 		return
-	log.Info("%s(rpc) connect to RpcServer%s success" % (sName, oClient.m_Address))
+	log.Info("%s(rpc) connect to RpcServer_%s(%s) success" % (sName, oClient.m_Server, oClient.m_Address))
 	oRemote.callRemote("AddClient", oClient.m_Name, oClient.m_Local)
 
 
@@ -87,11 +88,12 @@ class CRpcClient(object):
 	"""RPC客户端，可以调用服务器上的函数"""
 	m_bServer = False
 
-	def __init__(self, sName):
-		self.m_Name     = sName
+	def __init__(self, sClientName, sServerName):
+		self.m_Name     = sClientName
+		self.m_Server   = sServerName
 		self.m_Factory  = pb.PBClientFactory()
-		self.m_Local    = CClientService("%s.Local"%sName)   #提供给服务端调用的服务
-		self.m_Remote   = CService("%s.Remote"%sName)        #调用服务端函数的回调
+		self.m_Local    = CClientService("%s.Local"%self.m_Name)   #提供给服务端调用的服务
+		self.m_Remote   = CService("%s.Remote"%self.m_Name)        #调用服务端函数的回调
 		self.m_Address  = None
 
 
@@ -116,11 +118,11 @@ class CRpcClient(object):
 		"""
 		self.m_Address = (str(addr[0]), int(addr[1]))
 		reactor.connectTCP(addr[0], addr[1], self.m_Factory)
-		log.Info("%s(rpc) try connect to %s" % (self.m_Name, self.m_Address))
+		log.Info("%s(rpc) try connect to %s%s" % (self.m_Name, self.m_Server, self.m_Address))
 		#向RPC服务器注册自己的服务列表，方便服务器调用
 		oDefer = self.m_Factory.getRootObject()
-		oDefer.addCallback(ConnectServerSuccess, self.m_Name)
-		oDefer.addErrback(ConnectServerFailed, self.m_Name)
+		oDefer.addCallback(ConnectServerSuccess, self.m_Server)
+		oDefer.addErrback(ConnectServerFailed, self.m_Server)
 
 
 	def ReConnect(self):
@@ -132,8 +134,8 @@ class CRpcClient(object):
 		"""远程调用服务端上的接口"""
 		oDefer = self.m_Factory.getRootObject()
 		oDefer.addCallback(CallServerRequest, "CallService", self.m_Name, key, *args, **kw)
-		oDefer.addCallback(CallServerResult, True, self.m_Name, key)
-		oDefer.addErrback(CallServerResult, False, self.m_Name, key)
+		oDefer.addCallback(CallServerResult, True, self.m_Server, key)
+		oDefer.addErrback(CallServerResult, False, self.m_Server, key)
 
 
 	def CallResult(self, key, bSuccess, result):

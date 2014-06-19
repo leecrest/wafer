@@ -101,7 +101,8 @@ class CServer(object):
 				reactor.listenTCP(dRpcCfg["port"], rpc.CRpcFactory(oRpcNode))
 				log.Info("%s(rpc) listen at %d" % (sRpcName, dRpcCfg["port"]))
 			else:
-				oRpcNode = rpc.CreateRpcClient(self.m_Name)
+				oRpcNode = rpc.CreateRpcClient(self.m_Name, sRpcName)
+				log.Info("%s create rpc_client to %s" % (self.m_Name, sRpcName))
 				tAddress = (dRpcCfg["host"], dRpcCfg["port"])
 				oRpcNode.Connect(tAddress)
 			self.m_RpcDict[sRpcName] = oRpcNode
