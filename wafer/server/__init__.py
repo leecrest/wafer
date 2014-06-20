@@ -27,9 +27,10 @@ import：["xxxx","yyyy"]，初始化服务器时加载的文件列表
 
 
 from twisted.internet import reactor
+from twisted.web import vhost
 from wafer.utils import log
 from wafer.utils import *
-from wafer.net import tcp, packet, rpc
+from wafer.net import tcp, packet, rpc, web
 import wafer.db
 
 
@@ -58,6 +59,7 @@ class CServer(object):
 		self.m_RpcDict      = {}
 		self.m_NetType      = NET_TYPE_TCP
 		self.m_NetNode      = None
+		self.m_WebNode      = None
 		self.m_Handler      = {}
 
 
@@ -88,6 +90,16 @@ class CServer(object):
 				self.m_NetType = NET_TYPE_HTTP
 			elif sNetType == NET_TYPE_WEBSOCKET:
 				self.m_NetType = NET_TYPE_WEBSOCKET
+
+		#初始化web
+		dWebCfg = dConfig.get("web", None)
+		if dWebCfg:
+			self.m_WebNode = vhost.NameVirtualHost()
+			sHost = dWebCfg.get("url", "127.0.0.1")
+			self.m_WebNode.addHost(sHost, "./")
+			reactor.listenTCP(dWebCfg["port"], web.CDelaySite(self.m_WebNode))
+			log.Info("Server(%s) listen web port at %s:%d" % (self.m_Name, sHost, dWebCfg["port"]))
+
 
 		#RPC初始化
 		dRpcList = dConfig.get("rpc", [])
@@ -170,6 +182,14 @@ class CServer(object):
 
 #=======================================================================================================================
 #初始化函数
+def InitWeb(dConfig):
+	svr = CServer().m_WebNode
+	if not svr:
+		return
+	for sName, oSite in dConfig.iteritems():
+		svr.putChild(sName, oSite)
+
+
 def InitNetService(dConfig, cbDefault):
 	svr = CServer().m_NetNode.GetService()
 	svr.SetCallbacks(dConfig)
@@ -224,6 +244,6 @@ def CreateServer(sName, dConfig):
 
 
 __all__ = ["CServer", "PackSend", "PackBroadcast", "CallRpcClient", "CallRpcServer",
-           "InitNetService", "InitRpcClient", "InitRpcServer", "CreateServer"]
+           "InitWeb", "InitNetService", "InitRpcClient", "InitRpcServer", "CreateServer"]
 
 

@@ -53,7 +53,7 @@ def ConnectServerSuccess(oRemote, sName):
 	oClient = g_ClientDict.get(sName, None)
 	if not oClient:
 		return
-	log.Info("%s(rpc) connect to RpcServer_%s(%s) success" % (sName, oClient.m_Server, oClient.m_Address))
+	log.Info("%s(rpc) connect to RpcServer_%s%s success" % (sName, oClient.m_Server, oClient.m_Address))
 	oRemote.callRemote("AddClient", oClient.m_Name, oClient.m_Local)
 
 
