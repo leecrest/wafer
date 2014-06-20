@@ -28,9 +28,8 @@ import：["xxxx","yyyy"]，初始化服务器时加载的文件列表
 
 from twisted.internet import reactor
 from twisted.web import vhost
-from wafer.utils import log
 from wafer.utils import *
-from wafer.net import tcp, packet, rpc, web
+from wafer.net import *
 import wafer.db
 
 
@@ -132,8 +131,10 @@ class CServer(object):
 		if hasattr(mod, "ServerStop"):
 			self.m_Handler["ServerStop"] = mod.ServerStop
 		if self.m_NetType == NET_TYPE_TCP and self.m_NetNode:
-			if hasattr(mod, "ConnectLost"):
-				self.m_NetNode.GetService().SetCallback("OnConnectionLost", mod.ConnectLost)
+			if hasattr(mod, "ConnectionLost"):
+				self.m_NetNode.GetService().SetCallback("OnConnectionLost", mod.ConnectionLost)
+			if hasattr(mod, "ConnectionMade"):
+				self.m_NetNode.GetService().SetCallback("OnConnectionMade", mod.ConnectionMade)
 		self.m_State = SERVER_STATE_INIT
 		log.Info("Server(%s) init success!" % self.m_Name)
 

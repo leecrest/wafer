@@ -108,6 +108,7 @@ class CNetFactory(protocol.ServerFactory):
 		if iConnID in self.m_ConnDict:
 			return
 		self.m_ConnDict[iConnID] = conn
+		self.m_Service.Execute("OnConnectionMade", iConnID)
 
 
 	def ConnectionLost(self, iConnID):

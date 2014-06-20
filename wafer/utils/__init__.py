@@ -5,7 +5,7 @@
 @brief  : 通用函数集合
 """
 import copy
-
+import log
 
 class CFunctor:
 	"""
