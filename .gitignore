@@ -9,4 +9,3 @@
 .idea/wafer.iml
 .idea/workspace.xml
 *.pyc
-wafer/module/task/task_data.py
