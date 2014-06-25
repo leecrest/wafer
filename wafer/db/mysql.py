@@ -41,6 +41,7 @@ class CDBPool:
 			charset=dConfig.get("charset", "latin1"))
 		self.m_bInited = True
 		log.Info(u"连接数据库成功")
+		return True
 
 
 	def UnInit(self):
