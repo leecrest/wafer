@@ -123,3 +123,4 @@ def RemoveTimer(*args):
 		del oTimerDict[sFlag]
 
 
+__all__ = ["SetTimer", "RemoveTimer"]

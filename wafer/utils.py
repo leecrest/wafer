@@ -58,6 +58,3 @@ def CopyTuple(iTuple):
 def CopyDict(iDict):
 	return copy.copy(iDict)
 
-
-
-import log

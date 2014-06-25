@@ -12,7 +12,7 @@ from twisted.python import reflect
 from twisted.web import resource
 from twisted.web.error import UnsupportedMethod
 from twisted.web.microdom import escape
-from wafer.utils import log
+import wafer.log as log
 
 import string
 import types

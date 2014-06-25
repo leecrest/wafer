@@ -29,8 +29,11 @@ import：["xxxx","yyyy"]，初始化服务器时加载的文件列表
 from twisted.internet import reactor
 from twisted.web import vhost
 from wafer.utils import *
-from wafer.net import *
-import wafer.db
+import wafer.log as log
+import wafer.tcp as tcp
+import wafer.rpc as rpc
+import wafer.web as web
+import wafer.packet as packet
 
 
 #服务器状态
@@ -119,9 +122,9 @@ class CServer(object):
 			self.m_RpcDict[sRpcName] = oRpcNode
 
 		#数据库初始化
-		dCfg = dConfig.get("db", None)
-		if dCfg:
-			self.m_DataBase = wafer.db.CreateDB(dCfg)
+		#dCfg = dConfig.get("db", None)
+		#if dCfg:
+		#	self.m_DataBase = wafer.db.CreateDB(dCfg)
 
 		#每个进程配置init选项，启动时将加载此文件
 		sInitFile = dConfig.get("init", None)
@@ -244,7 +247,7 @@ def CreateServer(sName, dConfig):
 	return app
 
 
-__all__ = ["CServer", "PackSend", "PackBroadcast", "CallRpcClient", "CallRpcServer",
+__all__ = ["PackSend", "PackBroadcast", "CallRpcClient", "CallRpcServer",
            "InitWeb", "InitNetService", "InitRpcClient", "InitRpcServer", "CreateServer"]
 
 

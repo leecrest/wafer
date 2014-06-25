@@ -5,11 +5,12 @@
 @brief  : RPC
 """
 
-
 from twisted.spread import pb
 from twisted.internet import reactor
-from wafer.utils.service import CService
-from wafer.utils import log
+
+from wafer.service import CService
+import wafer.log as log
+
 
 reactor = reactor
 

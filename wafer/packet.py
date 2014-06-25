@@ -5,7 +5,7 @@
 @brief  : 网络定义
 """
 
-from wafer.utils import log
+import wafer.log as log
 import struct
 
 

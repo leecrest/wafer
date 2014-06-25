@@ -6,16 +6,16 @@
 """
 
 from twisted.internet import protocol, reactor
-from wafer.utils import log
-from packet import *
-from wafer.utils.service import CService
+from wafer.packet import *
+from wafer.service import CService
+import wafer.log as log
 
 reactor = reactor
 
 
 def DefferedErrorHandle(e):
 	"""延迟对象的错误处理"""
-	log.critical(str(e))
+	log.Fatal(str(e))
 	return
 
 
