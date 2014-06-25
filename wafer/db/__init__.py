@@ -6,10 +6,10 @@
 """
 
 from wafer.utils import log
-import mysql
+#import mysql
 
 DBModule = {
-	"mysql" : mysql.CDBPool,
+	#"mysql" : mysql.CDBPool,
 }
 
 

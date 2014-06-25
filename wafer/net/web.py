@@ -138,4 +138,4 @@ class CWebSite(resource.Resource):
 
 
 
-__all__ = ["CDelaySite", "CResourceSite"]
+__all__ = ["CDelaySite", "CWebSite"]

@@ -5,7 +5,7 @@
 @brief  : 通用函数集合
 """
 import copy
-import log
+
 
 class CFunctor:
 	"""
@@ -57,3 +57,7 @@ def CopyTuple(iTuple):
 
 def CopyDict(iDict):
 	return copy.copy(iDict)
+
+
+
+import log
