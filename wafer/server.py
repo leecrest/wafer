@@ -34,6 +34,7 @@ import wafer.tcp as tcp
 import wafer.rpc as rpc
 import wafer.web as web
 import wafer.packet as packet
+import wafer.redis as redis
 
 
 #服务器状态
@@ -58,11 +59,16 @@ class CServer(object):
 		self.m_State        = SERVER_STATE_NONE
 		self.m_LogPath      = ""
 		self.m_DataBase     = None
+		self.m_RedisNode    = None
 		self.m_RpcDict      = {}
 		self.m_NetType      = NET_TYPE_TCP
 		self.m_NetNode      = None
 		self.m_WebNode      = None
 		self.m_Handler      = {}
+
+
+	def GetRedis(self):
+		return self.m_RedisNode
 
 
 	def InitConfig(self, sName, dConfig):
@@ -121,6 +127,12 @@ class CServer(object):
 				oRpcNode.Connect(tAddress)
 			self.m_RpcDict[sRpcName] = oRpcNode
 
+		#redis
+		dCfg = dConfig.get("redis", None)
+		if dCfg:
+			self.m_RedisNode = redis.CreateRedis(dCfg)
+
+
 		#数据库初始化
 		#dCfg = dConfig.get("db", None)
 		#if dCfg:
@@ -167,7 +179,7 @@ class CServer(object):
 	def ServerStart(self):
 		cbFunc = self.m_Handler.get("ServerStart", None)
 		if cbFunc:
-			cbFunc()
+			cbFunc(self)
 
 
 	def Stop(self):
@@ -178,7 +190,7 @@ class CServer(object):
 		log.Info("Server(%s) stopped!" % self.m_Name)
 		cbFunc = self.m_Handler.get("ServerStop", None)
 		if cbFunc:
-			cbFunc()
+			cbFunc(self)
 		reactor.stop()
 
 
@@ -247,7 +259,12 @@ def CreateServer(sName, dConfig):
 	return app
 
 
+def GetServer():
+	return CServer()
+
+
 __all__ = ["PackSend", "PackBroadcast", "CallRpcClient", "CallRpcServer",
-           "InitWeb", "InitNetService", "InitRpcClient", "InitRpcServer", "CreateServer"]
+           "InitWeb", "InitNetService", "InitRpcClient", "InitRpcServer",
+           "CreateServer", "GetServer"]
 
 

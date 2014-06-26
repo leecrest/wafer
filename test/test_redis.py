@@ -9,6 +9,7 @@ import redis
 
 r = redis.Redis(host="localhost", port=6379, db=0)
 print r
+print r.info()
 v = r.get("hello")
 if not v:
 	print "get hello -> None"
@@ -19,9 +20,11 @@ print "get hello ->", r.get("hello")
 
 r.save()
 
-
+'''
 pool = redis.ConnectionPool(host="localhost", port=6379, db=1)
 r = redis.Redis(connection_pool=pool)
 print r
+print r.info()
 print r.get("hello")
 print r.dbsize()
+'''
