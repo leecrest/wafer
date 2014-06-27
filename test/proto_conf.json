@@ -1,0 +1,1 @@
+{"PtoCfg": {"16": {"args": [["Name", "string"], ["Pass", "string"], ["role", "role", 1]], "name": "c2s_login"}}, "Name2ID": {"c2s_login": 16}}

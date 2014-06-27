@@ -34,8 +34,8 @@ class CNetConnection(protocol.Protocol):
 
 	def connectionMade(self):
 		"""建立连接后的处理"""
-		log.Info("Client %d login at [%s,%d]" % (self.transport.sessionno,
-												 self.transport.client[0],self.transport.client[1]))
+		log.Info("Client %d login at [%s,%d]" % (
+			self.transport.sessionno, self.transport.client[0], self.transport.client[1]))
 		self.factory.ConnectionMade(self)
 		self.m_DataHandler = self.DataHandleCoroutine()
 		self.m_DataHandler.next()
@@ -67,9 +67,9 @@ class CNetConnection(protocol.Protocol):
 					log.Fatal("illegal data package -- [%s]"%unpack)
 					self.transport.loseConnection()
 					break
-				iIndex, iPackLen, dPackData = unpack
-				self.m_Buff = self.m_Buff[iLength+iPackLen:]
-				d = self.factory.DataReceived(self.GetConnID(), iIndex, dPackData)
+				sProtoName, iPackLen, dPackData = unpack
+				self.m_Buff = self.m_Buff[iLength + iPackLen:]
+				d = self.factory.DataReceived(self.GetConnID(), sProtoName, dPackData)
 				if not d:
 					continue
 				d.addCallback(self.SendData)
@@ -108,19 +108,19 @@ class CNetFactory(protocol.ServerFactory):
 		if iConnID in self.m_ConnDict:
 			return
 		self.m_ConnDict[iConnID] = conn
-		self.m_Service.Execute("OnConnectionMade", iConnID)
+		self.m_Service.Execute("__OnConnectionMade", iConnID)
 
 
 	def ConnectionLost(self, iConnID):
 		"""连接断开时的处理"""
 		if iConnID in self.m_ConnDict:
 			del self.m_ConnDict[iConnID]
-		self.m_Service.Execute("OnConnectionLost", iConnID)
+		self.m_Service.Execute("__OnConnectionLost", iConnID)
 
 
-	def DataReceived(self, iConnID, iIndex, data):
+	def DataReceived(self, iConnID, sProtoName, data):
 		"""数据到达时的处理"""
-		defer = self.m_Service.Execute(iIndex, iConnID, data)
+		defer = self.m_Service.Execute(sProtoName, iConnID, data)
 		return defer
 
 
@@ -132,11 +132,11 @@ class CNetFactory(protocol.ServerFactory):
 		conn.transport.loseConnection()
 
 
-	def SendMessage(self, iConnID, iIndex, dProtocol):
+	def SendMessage(self, iConnID, sProtoName, dProtocol):
 		"""
 		向指定链接的客户端，发送指定协议
 		:param iConnID: 客户端链接编号
-		:param iIndex: 协议编号
+		:param sProtoName: 协议名称
 		:param dProtocol: 协议数据源
 		:return:
 		"""
@@ -145,7 +145,7 @@ class CNetFactory(protocol.ServerFactory):
 		conn = self.m_ConnDict.get(iConnID, None)
 		if not conn:
 			return
-		data = packet.PackNet(iConnID, iIndex, dProtocol)
+		data = packet.PackNet(iConnID, sProtoName, dProtocol)
 		conn.SendData(data)
 
 

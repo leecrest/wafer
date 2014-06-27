@@ -25,7 +25,7 @@ PACKET_MAX_SIZE		= 2 ** 16
 
 
 #数据类型，格式：{"类型名称":(解析格式,长度),}
-DATA_TYPE = {
+BASIC_TYPE = {
 	"bool": ("?", 1),
     "int8": ("b", 1), "int16": ("h", 2), "int32": ("i", 4), "long": ("l", 8),
 	"uint8": ("B", 1), "uint16": ("H", 2), "uint32": ("I", 4), "ulong": ("L", 8),
@@ -34,36 +34,98 @@ DATA_TYPE = {
 
 
 class CWritePacket:
-	def __init__(self, iIndex=0):
-		self.m_Index = iIndex
-		self.m_Len = 0
+	def __init__(self, iProtoID=0):
+		self.m_ProtoID = iProtoID
+		self.m_Length = 0
 		self.m_Data = ""
 
 
-	def Write(self, sType, value):
-		if not self.m_Index:
+	def __WriteString__(self, sValue, bList=False):
+		print "str:", sValue, bList
+		if not self.m_ProtoID:
 			return
-		if sType != "string":
-			sFormat, iLen = DATA_TYPE[sType]
-			if self.m_Len + iLen > PACKET_MAX_SIZE:
+		if bList:
+			if not self.__WriteNumber__("uint8", len(sValue)):
 				return
-			self.m_Data += struct.pack(sFormat, value)
-			self.m_Len += iLen
+			for sItem in sValue:
+				if not self.__WriteString__(sItem):
+					return
 		else:
-			iLen = len(value)
-			if self.m_Len + iLen + 1 > PACKET_MAX_SIZE:
+			iLen = len(sValue)
+			if self.m_Length + iLen + 1 > PACKET_MAX_SIZE:
 				return
-			self.m_Data += struct.pack("B%ds" % iLen, iLen, value)
-			self.m_Len += iLen + 1
+			self.m_Data += struct.pack("B%ds" % iLen, iLen, sValue)
+			self.m_Length += iLen + 1
 		return True
 
 
-	def Pack(self):
-		if not self.m_Index:
+	def __WriteNumber__(self, sType, sValue, bList=False):
+		print "num:", sType, sValue, bList
+		if not self.m_ProtoID or not sType in BASIC_TYPE:
 			return
-		data = struct.pack("!HH", self.m_Index, self.m_Len) + self.m_Data
-		self.m_Index = 0
-		self.m_Len = 0
+		if bList:
+			if not self.__WriteNumber__("uint8", len(sValue)):
+				return
+			for sItem in sValue:
+				if not self.__WriteNumber__(sType, sItem):
+					return
+		else:
+			sFormat, iLen = BASIC_TYPE[sType]
+			if self.m_Length + iLen > PACKET_MAX_SIZE:
+				return
+			self.m_Data += struct.pack(sFormat, sValue)
+			self.m_Length += iLen
+		return True
+
+
+	def __WriteCustom__(self, sType, sValue, bList=False):
+		print "cus:", sType, sValue, bList
+		if not self.m_ProtoID or not sType in g_CustomType:
+			return
+		if bList:
+			if not self.__WriteNumber__("uint8", len(sValue)):
+				return
+			for sItem in sValue:
+				if not self.__WriteCustom__(sType, sItem):
+					return
+		else:
+			for tArg in g_CustomType[sType]:
+				sArgName, sArgType = tArg[0], tArg[1]
+				bArgList = False
+				if len(tArg) >= 3:
+					bArgList = tArg[2]
+				if sArgType == "string":
+					if not self.__WriteString__(sValue[sArgName], bArgList):
+						return
+				elif sArgType in BASIC_TYPE:
+					if not self.__WriteNumber__(sArgType, sValue[sArgName], bArgList):
+						return
+				elif sArgType in g_CustomType:
+					if not self.__WriteCustom__(sArgType, sValue[sArgName], bArgList):
+						return
+				else:
+					return
+		return True
+
+
+
+	def Write(self, sType, sValue, bList=False):
+		if not self.m_ProtoID:
+			return
+		if sType == "string":
+			return self.__WriteString__(sValue, bList)
+		elif sType in BASIC_TYPE:
+			return self.__WriteNumber__(sType, sValue, bList)
+		elif sType in g_CustomType:
+			return self.__WriteCustom__(sType, sValue, bList)
+
+
+	def Pack(self):
+		if not self.m_ProtoID:
+			return
+		data = struct.pack("!HH", self.m_ProtoID, self.m_Length) + self.m_Data
+		self.m_ProtoID = 0
+		self.m_Length = 0
 		self.m_Data = ""
 		return data
 
@@ -73,42 +135,124 @@ class CReadPacket:
 	def __init__(self, data):
 		self.m_Offset = 0
 		self.m_Data = data
-		self.m_Len = len(data)
+		self.m_Length = len(data)
 
 
-	def Read(self, sType):
-		if sType != "string":
-			sFormat, iLen = DATA_TYPE[sType]
+	#读取字符串类型
+	def __ReadString__(self, bList=False):
+		if bList:
+			iValueLen = self.__ReadNumber__("uint8")
+			if iValueLen is None:
+				return
+			sValueList = []
+			for i in xrange(iValueLen):
+				sValue = self.__ReadString__()
+				if sValue is None:
+					return
+				sValueList.append(sValue)
+			return sValueList
 		else:
-			iLen = self.Read("uint8")
-			sFormat = "%ds" % iLen
-		if self.m_Offset + iLen > self.m_Len:
+			iValueLen = self.Read("uint8")
+			sFormat = "%ds" % iValueLen
+			if self.m_Offset + iValueLen > self.m_Length:
+				return
+			sValue = struct.unpack_from(sFormat, self.m_Data, self.m_Offset)
+			self.m_Offset += iValueLen
+			return sValue[0]
+
+
+	#读取数字类型
+	def __ReadNumber__(self, sType, bList=False):
+		if not sType in BASIC_TYPE:
 			return
-		value = struct.unpack_from(sFormat, self.m_Data, self.m_Offset)
-		self.m_Offset += iLen
-		return value[0]
+		if bList:
+			iValueLen = self.__ReadNumber__("uint8")
+			if iValueLen is None:
+				return
+			sValueList = []
+			for i in xrange(iValueLen):
+				sValue = self.__ReadNumber__(sType)
+				if sValue is None:
+					return
+				sValueList.append(sValue)
+			return sValueList
+		else:
+			sFormat, iValueLen = BASIC_TYPE[sType]
+			if self.m_Offset + iValueLen > self.m_Length:
+				return
+			value = struct.unpack_from(sFormat, self.m_Data, self.m_Offset)
+			self.m_Offset += iValueLen
+			return value[0]
+
+
+	#读取自定义类型
+	def __ReadCustom__(self, sType, bList=False):
+		if not sType in g_CustomType:
+			return
+		if bList:
+			iValueLen = self.__ReadNumber__("uint8")
+			if iValueLen is None:
+				return
+			sValueList = []
+			for i in xrange(iValueLen):
+				sValue = self.__ReadCustom__(sType)
+				if sValue is None:
+					return
+				sValueList.append(sValue)
+			return sValueList
+		else:
+			dValue = {}
+			for tArgs in g_CustomType[sType]:
+				sArgName, sArgType = tArgs[0], tArgs[1]
+				bArgList = False
+				if len(tArgs) >= 3:
+					bArgList = tArgs[2]
+				if sArgType == "string":
+					sValue = self.__ReadString__(bArgList)
+				elif sArgType in BASIC_TYPE:
+					sValue = self.__ReadNumber__(sArgType, bArgList)
+				elif sArgType in g_CustomType:
+					sValue = self.__ReadCustom__(sArgType, bArgList)
+				else:
+					return
+				dValue[sArgName] = sValue
+			return dValue
+
+
+	#对外接口
+	def Read(self, sType, bList=False):
+		if sType == "string":
+			return self.__ReadString__(bList)
+		elif sType in BASIC_TYPE:
+			return self.__ReadNumber__(sType, bList)
+		elif sType in g_CustomType:
+			return self.__ReadCustom__(sType, bList)
+
 
 
 if not "g_ReadPacket" in globals():
 	g_ReadPacket = CReadPacket("")
 	g_WritePacket = CWritePacket()
 	g_Name2ID = None
-	g_ID2Name = None
-	g_PtoConfig = None
+	g_ProtoCfg = None
+	g_CustomType = {}
 
 
 #以下为对外接口
-def InitNetConfig(sConfigFile):
+def InitNetProto(sProtoFile, sTypeFile):
 	"""
-	指定网络协议格式
-	:param sConfigFile:配置文件
+	网络协议的初始化
+	:param sProtoFile:协议定义文件
+	:param sTypeFile:协议中的自定义类型定义文件
 	:return:
 	"""
-	global g_PtoConfig, g_Name2ID, g_ID2Name
-	data = json.load(open(sConfigFile, "r"))
-	g_PtoConfig = data["ProConfig"]
+	global g_ProtoCfg, g_Name2ID, g_CustomType
+	data = json.load(open(sProtoFile, "r"))
 	g_Name2ID = data["Name2ID"]
-	g_ID2Name = data["ID2Name"]
+	g_ProtoCfg = {}
+	for k,v in data["PtoCfg"].iteritems():
+		g_ProtoCfg[int(k)] = v
+	g_CustomType = json.load(open(sTypeFile, "r"))
 
 
 #读数据
@@ -119,61 +263,74 @@ def UnpackNet(iConnID, sBuff):
 	if len(sBuff) <= PACKET_HEAD_LEN:
 		return
 	try :
-		iIndex, iLen = struct.unpack("!HH", sBuff[:PACKET_HEAD_LEN])
+		iProtoID, iLen = struct.unpack("!HH", sBuff[:PACKET_HEAD_LEN])
 	except Exception, err:
 		log.Fatal(str(err))
 		return
 	if len(sBuff) < PACKET_HEAD_LEN + iLen:
-		log.Fatal("[UnpackNet] the packet is not full! iIndex=%s,iLen=%s,Data=%s" % (iIndex, iLen, sBuff))
+		log.Fatal("[UnpackNet] the packet is not full! iProtocolID=%s,iLen=%s,Data=%s" % (iProtoID, iLen, sBuff))
 		return
 
 	#将数据加载到读内存中
-	g_ReadPacket.__init__(sBuff[PACKET_HEAD_LEN:PACKET_HEAD_LEN+iLen])
+	g_ReadPacket.__init__(sBuff[PACKET_HEAD_LEN : PACKET_HEAD_LEN + iLen])
 
 	#按照指定的协议格式进行解包
-	sPtoName = g_ID2Name[iIndex]
-	dPtoConfig = g_PtoConfig[iIndex]
-	if not dPtoConfig:
-		log.Fatal("[UnpackNet] protocol %d is not supported" % iIndex)
+	dProtoCfg = g_ProtoCfg[iProtoID]
+	sProtoName = dProtoCfg["name"]
+	if not dProtoCfg:
+		log.Fatal("[UnpackNet] protocol %d is not supported" % iProtoID)
 		return
 	dProtocol = {}
-	for tArg in dPtoConfig["args"]:
-		sName, sType = tArg[0], tArg[1]
-		value = g_ReadPacket.Read(sType)
-		if value == None:
-			log.Fatal("[UnpackNet] protocol %d is error at (%s, %s)" % (iIndex, sName, sType))
-			raise "[UnpackNet] protocol %d is error at (%s, %s)" % (iIndex, sName, sType)
-		dProtocol[sName] = value
-	return sPtoName, iLen, dProtocol
+	for tArg in dProtoCfg["args"]:
+		sArgName, sArgType = tArg[0], tArg[1]
+		bList = False
+		if len(tArg) >= 3:
+			bList = tArg[2]
+		sArgValue = g_ReadPacket.Read(sArgType, bList)
+		if sArgValue is None:
+			log.Fatal("[UnpackNet] protocol %d is error at (%s, %s)" % (iProtoID, sArgName, sArgType))
+			return
+		dProtocol[sArgName] = sArgValue
+	return sProtoName, iLen, dProtocol
 
 
 #写数据
-def PackNet(iConnID, sName, data):
+def PackNet(iConnID, sProtoName, data):
 	"""
 	压包，将源数据按照iIndex的协议格式进行压包
-	:param sName:协议名称
+	:param sProtoName:协议名称
 	:param data:
 	:return:
 	"""
 	#准备
-	iIndex = g_Name2ID[sName]
-	g_WritePacket.__init__(iIndex)
+	iProtoID = g_Name2ID[sProtoName]
+	g_WritePacket.__init__(iProtoID)
 	#按照协议进行打包
-	dPtoConfig = g_PtoConfig[iIndex]
-	if not dPtoConfig:
-		log.Fatal("[PackNet] protocol %d is not supported" % iIndex)
+	dProtoCfg = g_ProtoCfg[iProtoID]
+	if not dProtoCfg:
+		log.Fatal("[PackNet] protocol %d is not supported" % iProtoID)
 		return
-	for tArg in dPtoConfig["args"]:
+	for tArg in dProtoCfg["args"]:
 		sName, sType = tArg[0], tArg[1]
 		if not sName in data:
-			log.Fatal("[PackNet] protocol %d need (%s)" % (iIndex, sName))
-			raise "[PackNet] protocol %d need (%s)" % (iIndex, sName)
-		value = data[sName]
-		if not g_WritePacket.Write(sType, value):
-			log.Fatal("[PacketNet] protocol %d write failed at (%s=%s)" % (iIndex, sName, value))
+			log.Fatal("[PackNet] protocol %d need (%s)" % (iProtoID, sName))
+			raise "[PackNet] protocol %d need (%s)" % (iProtoID, sName)
+		bList = False
+		if len(tArg) >= 3:
+			bList = tArg[2]
+		if not bList:
+			sValue = data[sName]
+			if not g_WritePacket.Write(sType, sValue):
+				log.Fatal("[PacketNet] protocol %d write failed at (%s=%s)" % (iProtoID, sName, sValue))
+		else:
+			sValueList = data[sName]
+			g_WritePacket.Write("uint8", len(sValueList))
+			for sValue in sValueList:
+				if not g_WritePacket.Write(sType, sValue):
+					log.Fatal("[PacketNet] protocol %d write failed at (%s=%s)" % (iProtoID, sName, sValue))
 	sData = g_WritePacket.Pack()
 	#将整个数据进行加密
 	return sData
 
 
-__all__ = ["PACKET_HEAD_LEN", "DATA_TYPE", "InitNetConfig", "PackNet", "UnpackNet", ]
+__all__ = ["PACKET_HEAD_LEN", "BASIC_TYPE", "InitNetProto", "PackNet", "UnpackNet", ]

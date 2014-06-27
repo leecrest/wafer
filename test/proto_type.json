@@ -1,0 +1,1 @@
+{"item": [["ID", "uint32"], ["Name", "string"], ["param", "uint32", 1]], "role": [["ID", "uint32"], ["Name", "string"], ["item", "item", 1]]}
