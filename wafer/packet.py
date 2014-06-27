@@ -7,6 +7,7 @@
 
 import wafer.log as log
 import struct
+import json
 
 
 """
@@ -23,75 +24,49 @@ PACKET_HEAD_LEN		= 4
 PACKET_MAX_SIZE		= 2 ** 16
 
 
+#数据类型，格式：{"类型名称":(解析格式,长度),}
+DATA_TYPE = {
+	"bool": ("?", 1),
+    "int8": ("b", 1), "int16": ("h", 2), "int32": ("i", 4), "long": ("l", 8),
+	"uint8": ("B", 1), "uint16": ("H", 2), "uint32": ("I", 4), "ulong": ("L", 8),
+}
+
+
 
 class CWritePacket:
-	def __init__(self):
-		self.m_Type = 0
+	def __init__(self, iIndex=0):
+		self.m_Index = iIndex
 		self.m_Len = 0
 		self.m_Data = ""
 
 
-	def __Valid__(self, iLen):
-		return self.m_Len + iLen <= PACKET_MAX_SIZE
-
-
-	def __WriteBool__(self, value):
-		if not self.__Valid__(1):
+	def Write(self, sType, value):
+		if not self.m_Index:
 			return
-		self.m_Data += struct.pack("?", value)
-		self.m_Len += 1
-
-
-	def __WriteInt__(self, value, iLen):
-		if not self.__Valid__(iLen):
-			return
-		if iLen == 1:
-			sFormat = "b"
-		elif iLen == 2:
-			sFormat = "h"
-		elif iLen == 4:
-			sFormat = "i"
-		elif iLen == 8:
-			sFormat = "l"
+		if sType != "string":
+			sFormat, iLen = DATA_TYPE[sType]
+			if self.m_Len + iLen > PACKET_MAX_SIZE:
+				return
+			self.m_Data += struct.pack(sFormat, value)
+			self.m_Len += iLen
 		else:
-			sFormat = "i"
-		self.m_Data += struct.pack(sFormat, value)
-		self.m_Len += iLen
+			iLen = len(value)
+			if self.m_Len + iLen + 1 > PACKET_MAX_SIZE:
+				return
+			self.m_Data += struct.pack("B%ds" % iLen, iLen, value)
+			self.m_Len += iLen + 1
+		return True
 
 
-	def __WriteUInt__(self, value, iLen):
-		if not self.__Valid__(iLen):
+	def Pack(self):
+		if not self.m_Index:
 			return
-		if iLen == 1:
-			sFormat = "B"
-		elif iLen == 2:
-			sFormat = "H"
-		elif iLen == 4:
-			sFormat = "I"
-		elif iLen == 8:
-			sFormat = "L"
-		else:
-			sFormat = "I"
-		self.m_Data += struct.pack(sFormat, value)
-		self.m_Len += iLen
-
-
-	def __WriteString__(self, value):
-		if not value:
-			return
-		iLen = len(value)
-		if not self.__Valid__(iLen+1):
-			return
-		self.m_Data += struct.pack("B%ds"%iLen, iLen, value)
-		self.m_Len += iLen+1
-
-
-	def __Pack__(self):
-		data = struct.pack("!HH", self.m_Type, self.m_Len) + self.m_Data
-		self.m_Type = 0
+		data = struct.pack("!HH", self.m_Index, self.m_Len) + self.m_Data
+		self.m_Index = 0
 		self.m_Len = 0
 		self.m_Data = ""
 		return data
+
 
 
 class CReadPacket:
@@ -101,61 +76,15 @@ class CReadPacket:
 		self.m_Len = len(data)
 
 
-	def __Valid__(self, iLen):
-		return self.m_Offset + iLen <= self.m_Len
-
-
-	def __ReadBool__(self):
-		if not self.__Valid__(1):
-			return
-		value = struct.unpack_from("?", self.m_Data, self.m_Offset)
-		self.m_Offset += 1
-		return value[0]
-
-
-	def __ReadInt__(self, iLen):
-		if not self.__Valid__(iLen):
-			return
-		if iLen == 1:
-			sFormat = "b"
-		elif iLen == 2:
-			sFormat = "h"
-		elif iLen == 4:
-			sFormat = "i"
-		elif iLen == 8:
-			sFormat = "l"
+	def Read(self, sType):
+		if sType != "string":
+			sFormat, iLen = DATA_TYPE[sType]
 		else:
-			sFormat = "i"
+			iLen = self.Read("uint8")
+			sFormat = "%ds" % iLen
+		if self.m_Offset + iLen > self.m_Len:
+			return
 		value = struct.unpack_from(sFormat, self.m_Data, self.m_Offset)
-		self.m_Offset += iLen
-		return value[0]
-
-
-	def __ReadUInt__(self, iLen):
-		if not self.__Valid__(iLen):
-			return
-		if iLen == 1:
-			sFormat = "B"
-		elif iLen == 2:
-			sFormat = "H"
-		elif iLen == 4:
-			sFormat = "I"
-		elif iLen == 8:
-			sFormat = "L"
-		else:
-			sFormat = "I"
-		value = struct.unpack_from(sFormat, self.m_Data, self.m_Offset)
-		self.m_Offset += iLen
-		return value[0]
-
-
-	def __ReadString__(self):
-		iLen = self.__ReadInt__(1)
-		if not iLen:
-			return
-		if not self.__Valid__(iLen):
-			return
-		value = struct.unpack_from("%ds"%iLen, self.m_Data, self.m_Offset)
 		self.m_Offset += iLen
 		return value[0]
 
@@ -163,172 +92,88 @@ class CReadPacket:
 if not "g_ReadPacket" in globals():
 	g_ReadPacket = CReadPacket("")
 	g_WritePacket = CWritePacket()
+	g_Name2ID = None
+	g_ID2Name = None
 	g_PtoConfig = None
 
 
 #以下为对外接口
-def InitNetConfig(dPtoConfig):
+def InitNetConfig(sConfigFile):
 	"""
 	指定网络协议格式
-	:param dPtoConfig:协议配置
+	:param sConfigFile:配置文件
 	:return:
 	"""
-	global g_PtoConfig
-	g_PtoConfig = dPtoConfig
+	global g_PtoConfig, g_Name2ID, g_ID2Name
+	data = json.load(open(sConfigFile, "r"))
+	g_PtoConfig = data["ProConfig"]
+	g_Name2ID = data["Name2ID"]
+	g_ID2Name = data["ID2Name"]
 
 
 #读数据
-def UnpackNetData(data):
+def UnpackNet(iConnID, sBuff):
 	#对原数据进行解密
 
 	#解析包头，判断数据有效性
-	if len(data) <= PACKET_HEAD_LEN:
+	if len(sBuff) <= PACKET_HEAD_LEN:
 		return
 	try :
-		iIndex, iLen = struct.unpack("!HH", data[:PACKET_HEAD_LEN])
+		iIndex, iLen = struct.unpack("!HH", sBuff[:PACKET_HEAD_LEN])
 	except Exception, err:
-		log.critical(str(err))
+		log.Fatal(str(err))
 		return
-	if len(data) < PACKET_HEAD_LEN + iLen:
-		log.critical("[UnPack] the packet is not full! iIndex=%s,iLen=%s,Data=%s" % (iIndex, iLen, data))
+	if len(sBuff) < PACKET_HEAD_LEN + iLen:
+		log.Fatal("[UnpackNet] the packet is not full! iIndex=%s,iLen=%s,Data=%s" % (iIndex, iLen, sBuff))
 		return
+
 	#将数据加载到读内存中
-	g_ReadPacket.__init__(data[PACKET_HEAD_LEN:PACKET_HEAD_LEN+iLen])
+	g_ReadPacket.__init__(sBuff[PACKET_HEAD_LEN:PACKET_HEAD_LEN+iLen])
+
 	#按照指定的协议格式进行解包
+	sPtoName = g_ID2Name[iIndex]
+	dPtoConfig = g_PtoConfig[iIndex]
+	if not dPtoConfig:
+		log.Fatal("[UnpackNet] protocol %d is not supported" % iIndex)
+		return
 	dProtocol = {}
-	return iIndex, iLen, dProtocol
+	for tArg in dPtoConfig["args"]:
+		sName, sType = tArg[0], tArg[1]
+		value = g_ReadPacket.Read(sType)
+		if value == None:
+			log.Fatal("[UnpackNet] protocol %d is error at (%s, %s)" % (iIndex, sName, sType))
+			raise "[UnpackNet] protocol %d is error at (%s, %s)" % (iIndex, sName, sType)
+		dProtocol[sName] = value
+	return sPtoName, iLen, dProtocol
 
 
 #写数据
-def PackPrepare(iType):
-	g_WritePacket.__init__()
-	g_WritePacket.m_Type = iType
-
-
-def PackNetData(iIndex, data):
+def PackNet(iConnID, sName, data):
 	"""
 	压包，将源数据按照iIndex的协议格式进行压包
-	:param iIndex:协议编号
+	:param sName:协议名称
 	:param data:
 	:return:
 	"""
-	pass
+	#准备
+	iIndex = g_Name2ID[sName]
+	g_WritePacket.__init__(iIndex)
+	#按照协议进行打包
+	dPtoConfig = g_PtoConfig[iIndex]
+	if not dPtoConfig:
+		log.Fatal("[PackNet] protocol %d is not supported" % iIndex)
+		return
+	for tArg in dPtoConfig["args"]:
+		sName, sType = tArg[0], tArg[1]
+		if not sName in data:
+			log.Fatal("[PackNet] protocol %d need (%s)" % (iIndex, sName))
+			raise "[PackNet] protocol %d need (%s)" % (iIndex, sName)
+		value = data[sName]
+		if not g_WritePacket.Write(sType, value):
+			log.Fatal("[PacketNet] protocol %d write failed at (%s=%s)" % (iIndex, sName, value))
+	sData = g_WritePacket.Pack()
+	#将整个数据进行加密
+	return sData
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#=======================================================================================================================
-
-
-#=======================================================================================================================
-
-
-
-def PackBool(value):
-	g_WritePacket.__WriteBool__(value)
-def PackUInt8(value):
-	g_WritePacket.__WriteUInt__(value, 1)
-def PackUInt16(value):
-	g_WritePacket.__WriteUInt__(value, 2)
-def PackUInt32(value):
-	g_WritePacket.__WriteUInt__(value, 4)
-def PackUInt64(value):
-	g_WritePacket.__WriteUInt__(value, 8)
-def PackInt8(value):
-	g_WritePacket.__WriteInt__(value, 1)
-def PackInt16(value):
-	g_WritePacket.__WriteInt__(value, 2)
-def PackInt32(value):
-	g_WritePacket.__WriteInt__(value, 4)
-def PackInt64(value):
-	g_WritePacket.__WriteInt__(value, 8)
-def PackString(value):
-	value = str(value)
-	g_WritePacket.__WriteString__(value)
-
-
-
-#=======================================================================================================================
-
-
-
-def UnpackBool():
-	return g_ReadPacket.__ReadBool__()
-def UnpackUInt8():
-	return g_ReadPacket.__ReadUInt__(1)
-def UnpackUInt16():
-	return g_ReadPacket.__ReadUInt__(2)
-def UnpackUInt32():
-	return g_ReadPacket.__ReadUInt__(4)
-def UnpackUInt64():
-	return g_ReadPacket.__ReadUInt__(8)
-def UnpackInt8():
-	return g_ReadPacket.__ReadInt__(1)
-def UnpackInt16():
-	return g_ReadPacket.__ReadInt__(2)
-def UnpackInt32():
-	return g_ReadPacket.__ReadInt__(4)
-def UnpackInt64():
-	return g_ReadPacket.__ReadInt__(8)
-def UnpackString():
-	return g_ReadPacket.__ReadString__()
-
-
-def GetPackData():
-	return g_WritePacket.__Pack__()
-
-
-def GetUnpackData():
-	return g_ReadPacket.m_Data
-
-__all__ = ["PACKET_HEAD_LEN",
-
-           "PackPrepare", "PackBool", "PackString",
-           "PackInt8", "PackInt16", "PackInt32", "PackInt64",
-           "PackUInt8", "PackUInt16", "PackUInt32", "PackUInt64",
-
-           "UnpackPrepare", "UnpackBool", "UnpackString",
-           "UnpackInt8", "UnpackInt16", "UnpackInt32", "UnpackInt64",
-           "UnpackUInt8", "UnpackUInt16", "UnpackUInt32", "UnpackUInt64",
-
-           "GetUnpackData", "GetPackData"]
+__all__ = ["PACKET_HEAD_LEN", "DATA_TYPE", "InitNetConfig", "PackNet", "UnpackNet", ]

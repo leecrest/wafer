@@ -62,7 +62,7 @@ class CNetConnection(protocol.Protocol):
 			data = yield
 			self.m_Buff += data
 			while self.m_Buff.__len__() >= iLength:
-				unpack = packet.UnpackPrepare(self.m_Buff)
+				unpack = packet.UnpackNet(self.GetConnID(), self.m_Buff)
 				if not unpack:
 					log.Fatal("illegal data package -- [%s]"%unpack)
 					self.transport.loseConnection()
@@ -132,25 +132,30 @@ class CNetFactory(protocol.ServerFactory):
 		conn.transport.loseConnection()
 
 
-	def SendMessage(self, data, iConnID):
-		if not data:
+	def SendMessage(self, iConnID, iIndex, dProtocol):
+		"""
+		向指定链接的客户端，发送指定协议
+		:param iConnID: 客户端链接编号
+		:param iIndex: 协议编号
+		:param dProtocol: 协议数据源
+		:return:
+		"""
+		if not dProtocol:
 			return
 		conn = self.m_ConnDict.get(iConnID, None)
 		if not conn:
 			return
+		data = packet.PackNet(iConnID, iIndex, dProtocol)
 		conn.SendData(data)
 
 
-	def Broadcast(self, data, iConnList):
+	def Broadcast(self, iConnList, iIndex, dProtocol):
 		"""服务端向客户端推消息
 		@param data: 消息的类容，protobuf结构类型
 		@param iConnList: 推向的目标列表(客户端id 列表)
 		"""
 		for iConnID in iConnList:
-			conn = self.m_ConnDict.get(iConnID, None)
-			if not conn:
-				continue
-			conn.SendData(data)
+			self.SendMessage(iConnID, iIndex, dProtocol)
 
 
 
