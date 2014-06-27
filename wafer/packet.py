@@ -12,15 +12,16 @@ import struct
 """
 协议格式：
 +--------+-------+--------+
-|  type  |  len  |  body  |
+|   id   |  len  |  body  |
 +--------+-------+--------+
 
-1.type：1byte，协议的主编号等，唯一标示
+1.id：2byte，协议编号，唯一标示
 2.len：2byte，body的长度
 3.body：协议的二进制内容
 """
-PACKET_HEAD_LEN		= 3
+PACKET_HEAD_LEN		= 4
 PACKET_MAX_SIZE		= 2 ** 16
+
 
 
 class CWritePacket:
@@ -37,8 +38,8 @@ class CWritePacket:
 	def __WriteBool__(self, value):
 		if not self.__Valid__(1):
 			return
-		self.m_Len += 1
 		self.m_Data += struct.pack("?", value)
+		self.m_Len += 1
 
 
 	def __WriteInt__(self, value, iLen):
@@ -86,7 +87,7 @@ class CWritePacket:
 
 
 	def __Pack__(self):
-		data = struct.pack("!BH", self.m_Type, self.m_Len) + self.m_Data
+		data = struct.pack("!HH", self.m_Type, self.m_Len) + self.m_Data
 		self.m_Type = 0
 		self.m_Len = 0
 		self.m_Data = ""
@@ -159,18 +160,108 @@ class CReadPacket:
 		return value[0]
 
 
-
 if not "g_ReadPacket" in globals():
 	g_ReadPacket = CReadPacket("")
 	g_WritePacket = CWritePacket()
+	g_PtoConfig = None
 
 
+#以下为对外接口
+def InitNetConfig(dPtoConfig):
+	"""
+	指定网络协议格式
+	:param dPtoConfig:协议配置
+	:return:
+	"""
+	global g_PtoConfig
+	g_PtoConfig = dPtoConfig
 
-#=======================================================================================================================
+
+#读数据
+def UnpackNetData(data):
+	#对原数据进行解密
+
+	#解析包头，判断数据有效性
+	if len(data) <= PACKET_HEAD_LEN:
+		return
+	try :
+		iIndex, iLen = struct.unpack("!HH", data[:PACKET_HEAD_LEN])
+	except Exception, err:
+		log.critical(str(err))
+		return
+	if len(data) < PACKET_HEAD_LEN + iLen:
+		log.critical("[UnPack] the packet is not full! iIndex=%s,iLen=%s,Data=%s" % (iIndex, iLen, data))
+		return
+	#将数据加载到读内存中
+	g_ReadPacket.__init__(data[PACKET_HEAD_LEN:PACKET_HEAD_LEN+iLen])
+	#按照指定的协议格式进行解包
+	dProtocol = {}
+	return iIndex, iLen, dProtocol
+
+
 #写数据
 def PackPrepare(iType):
 	g_WritePacket.__init__()
 	g_WritePacket.m_Type = iType
+
+
+def PackNetData(iIndex, data):
+	"""
+	压包，将源数据按照iIndex的协议格式进行压包
+	:param iIndex:协议编号
+	:param data:
+	:return:
+	"""
+	pass
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#=======================================================================================================================
+
+
+#=======================================================================================================================
+
 
 
 def PackBool(value):
@@ -198,20 +289,7 @@ def PackString(value):
 
 
 #=======================================================================================================================
-#读数据
-def UnpackPrepare(data):
-	if len(data) <= PACKET_HEAD_LEN:
-		return
-	try :
-		iType, iLen = struct.unpack("!BH", data[:PACKET_HEAD_LEN])
-	except Exception, err:
-		log.critical(str(err))
-		return None
-	if len(data) < PACKET_HEAD_LEN + iLen:
-		log.critical("[UnPack] the packet is not full! iType=%s,iLen=%s,Data=%s" % (iType, iLen, data))
-		return
-	g_ReadPacket.__init__(data[PACKET_HEAD_LEN:PACKET_HEAD_LEN+iLen])
-	return iType, iLen
+
 
 
 def UnpackBool():

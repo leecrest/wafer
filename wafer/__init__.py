@@ -8,7 +8,6 @@
 from twisted.python import versions
 
 from wafer.utils import *
-from wafer.packet import *
 from wafer.server import *
 from wafer.web import *
 from wafer.timer import *

@@ -6,9 +6,9 @@
 """
 
 from twisted.internet import protocol, reactor
-from wafer.packet import *
 from wafer.service import CService
 import wafer.log as log
+import wafer.packet as packet
 
 reactor = reactor
 
@@ -57,19 +57,19 @@ class CNetConnection(protocol.Protocol):
 
 	def DataHandleCoroutine(self):
 		#获取协议头的长度
-		iLength = PACKET_HEAD_LEN
+		iLength = packet.PACKET_HEAD_LEN
 		while True:
 			data = yield
 			self.m_Buff += data
 			while self.m_Buff.__len__() >= iLength:
-				unpack = UnpackPrepare(self.m_Buff)
+				unpack = packet.UnpackPrepare(self.m_Buff)
 				if not unpack:
 					log.Fatal("illegal data package -- [%s]"%unpack)
 					self.transport.loseConnection()
 					break
-				iCommand, iPackLen = unpack
+				iIndex, iPackLen, dPackData = unpack
 				self.m_Buff = self.m_Buff[iLength+iPackLen:]
-				d = self.factory.DataReceived(iCommand, self.GetConnID())
+				d = self.factory.DataReceived(self.GetConnID(), iIndex, dPackData)
 				if not d:
 					continue
 				d.addCallback(self.SendData)
@@ -118,9 +118,9 @@ class CNetFactory(protocol.ServerFactory):
 		self.m_Service.Execute("OnConnectionLost", iConnID)
 
 
-	def DataReceived(self, iCommand, iConnID):
+	def DataReceived(self, iConnID, iIndex, data):
 		"""数据到达时的处理"""
-		defer = self.m_Service.Execute(iCommand, iConnID)
+		defer = self.m_Service.Execute(iIndex, iConnID, data)
 		return defer
 
 
