@@ -5,6 +5,7 @@
 @brief  : 通用函数集合
 """
 import copy
+import random
 
 
 class CFunctor:
@@ -58,3 +59,9 @@ def CopyTuple(iTuple):
 def CopyDict(iDict):
 	return copy.copy(iDict)
 
+
+def RandomList(iList):
+	if not iList:
+		return
+	iPos = random.randint(0, len(iList)-1)
+	return iList[iPos]

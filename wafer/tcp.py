@@ -52,7 +52,14 @@ class CNetConnection(protocol.Protocol):
 		"""
 		if not self.transport.connected or not data:
 			return
-		reactor.callFromThread(self.transport.write, data)
+		sProto, dProto = data[0], data[1]
+		if type(dProto) == str:
+			sData = packet.PackData(sProto, dProto)
+		elif type(dProto) == dict:
+			sData = packet.PackProto(sProto, dProto)
+		else:
+			return
+		reactor.callFromThread(self.transport.write, sData)
 
 
 	def DataHandleCoroutine(self):
@@ -62,12 +69,13 @@ class CNetConnection(protocol.Protocol):
 			data = yield
 			self.m_Buff += data
 			while self.m_Buff.__len__() >= iLength:
-				unpack = packet.UnpackNet(self.GetConnID(), self.m_Buff)
+				unpack = packet.UnpackProto(self.m_Buff)
 				if not unpack:
 					log.Fatal("illegal data package -- [%s]"%unpack)
 					self.transport.loseConnection()
 					break
 				sProtoName, iPackLen, dPackData = unpack
+				log.Info("recv %s/%d from %d" % (sProtoName, iPackLen, self.GetConnID()))
 				self.m_Buff = self.m_Buff[iLength + iPackLen:]
 				d = self.factory.DataReceived(self.GetConnID(), sProtoName, dPackData)
 				if not d:
@@ -120,8 +128,7 @@ class CNetFactory(protocol.ServerFactory):
 
 	def DataReceived(self, iConnID, sProtoName, data):
 		"""数据到达时的处理"""
-		defer = self.m_Service.Execute(sProtoName, iConnID, data)
-		return defer
+		return self.m_Service.Execute(sProtoName, iConnID, data)
 
 
 	def LoseConnection(self, iConnID):
@@ -132,7 +139,7 @@ class CNetFactory(protocol.ServerFactory):
 		conn.transport.loseConnection()
 
 
-	def SendMessage(self, iConnID, sProtoName, dProtocol):
+	def SendData(self, iConnID, sProtoName, dProtocol):
 		"""
 		向指定链接的客户端，发送指定协议
 		:param iConnID: 客户端链接编号
@@ -145,17 +152,29 @@ class CNetFactory(protocol.ServerFactory):
 		conn = self.m_ConnDict.get(iConnID, None)
 		if not conn:
 			return
-		data = packet.PackNet(iConnID, sProtoName, dProtocol)
+		data = packet.PackProto(sProtoName, dProtocol)
 		conn.SendData(data)
 
 
-	def Broadcast(self, iConnList, iIndex, dProtocol):
-		"""服务端向客户端推消息
-		@param data: 消息的类容，protobuf结构类型
-		@param iConnList: 推向的目标列表(客户端id 列表)
+	def SendTrans(self, iConnID, iProtoID, sData):
 		"""
-		for iConnID in iConnList:
-			self.SendMessage(iConnID, iIndex, dProtocol)
+		发送中转协议包，不需要按照本地协议规则进行打包
+		:param iConnID: 客户端ID
+		:param iProtoID: 协议编号
+		:param sData: 协议数据
+		:return:
+		"""
+		if not sData:
+			return
+		conn = self.m_ConnDict.get(iConnID, None)
+		if not conn:
+			return
+		#打包数据
+		data = packet.PackData(iProtoID, sData)
+		#加密
+		#发送
+		conn.SendData(data)
+
 
 
 

@@ -33,8 +33,6 @@ import wafer.log as log
 import wafer.tcp as tcp
 import wafer.rpc as rpc
 import wafer.web as web
-import wafer.packet as packet
-import wafer.redis as redis
 
 
 #服务器状态
@@ -111,9 +109,9 @@ class CServer(object):
 
 		#RPC初始化
 		dRpcList = dConfig.get("rpc", [])
-		if not dRpcList:
-			log.Fatal("Server(%s) need config about rpc" % self.m_Name)
-			return
+		#if not dRpcList:
+		#	log.Fatal("Server(%s) need config about rpc" % self.m_Name)
+		#	return
 		for dRpcCfg in dRpcList:
 			sRpcName = dRpcCfg["name"]
 			if dRpcCfg.get("server", False):
@@ -130,7 +128,13 @@ class CServer(object):
 		#redis
 		dCfg = dConfig.get("redis", None)
 		if dCfg:
-			self.m_RedisNode = redis.CreateRedis(dCfg)
+			import redis
+			self.m_RedisNode = redis.Redis(
+				host=dCfg.get("host", "localhost"),
+			    port=dCfg.get("port", 6379),
+			    db=dCfg.get("db", 0),
+			)
+			log.Info("Server(%s) start redis" % self.m_Name)
 
 
 		#数据库初始化
@@ -147,14 +151,15 @@ class CServer(object):
 			self.m_Handler["ServerStop"] = mod.ServerStop
 		if self.m_NetType == NET_TYPE_TCP and self.m_NetNode:
 			if hasattr(mod, "ConnectionLost"):
-				self.m_NetNode.GetService().SetCallback("OnConnectionLost", mod.ConnectionLost)
+				self.m_NetNode.GetService().SetCallback("__OnConnectionLost", mod.ConnectionLost)
 			if hasattr(mod, "ConnectionMade"):
-				self.m_NetNode.GetService().SetCallback("OnConnectionMade", mod.ConnectionMade)
+				self.m_NetNode.GetService().SetCallback("__OnConnectionMade", mod.ConnectionMade)
 		self.m_State = SERVER_STATE_INIT
 		log.Info("Server(%s) init success!" % self.m_Name)
 
 
-	def Import(self, sFile):
+	@staticmethod
+	def Import(sFile):
 		if sFile.endswith(".__init__"):
 			sFile = sFile[:-9]
 		mod = __import__(sFile)
@@ -225,7 +230,7 @@ def InitRpcServer(sRpcName, dLocal, dRemote):
 	if not node or not node.m_bServer:
 		return
 	node.SetLocals(dLocal)
-	node.SetRemotes(dLocal)
+	node.SetRemotes(dRemote)
 
 
 #=======================================================================================================================
@@ -244,13 +249,21 @@ def CallRpcClient(sRpcName, sClientName, key, *args, **kwargs):
 
 
 #=======================================================================================================================
-#数据包转发与广播
-def PackSend(iConnID):
-	CServer().m_NetNode.SendMessage(packet.GetPackData(), iConnID)
+#发送数据包
+def PackSend(iConnID, sProtoName, dProtocol):
+	if type(iConnID) == int:
+		CServer().m_NetNode.SendData(iConnID, sProtoName, dProtocol)
+	elif type(iConnID) in (tuple, list):
+		for iConn in iConnID:
+			CServer().m_NetNode.SendData(iConn, sProtoName, dProtocol)
 
 
-def PackBroadcast(iConnList):
-	CServer().m_NetNode.Broadcast(packet.GetPackData(), iConnList)
+def PackTrans(iConnID, iProtoID, sData):
+	if type(iConnID) == int:
+		CServer().m_NetNode.SendTrans(iConnID, iProtoID, sData)
+	elif type(iConnID) in (tuple, list):
+		for iConn in iConnID:
+			CServer().m_NetNode.SendTrans(iConn, iProtoID, sData)
 
 
 def CreateServer(sName, dConfig):
@@ -263,7 +276,7 @@ def GetServer():
 	return CServer()
 
 
-__all__ = ["PackSend", "PackBroadcast", "CallRpcClient", "CallRpcServer",
+__all__ = ["PackSend", "PackTrans", "CallRpcClient", "CallRpcServer",
            "InitWeb", "InitNetService", "InitRpcClient", "InitRpcServer",
            "CreateServer", "GetServer"]
 

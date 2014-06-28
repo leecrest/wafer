@@ -7,24 +7,11 @@
 
 import redis
 
-r = redis.Redis(host="localhost", port=6379, db=0)
-print r
-print r.info()
-v = r.get("hello")
-if not v:
-	print "get hello -> None"
-	r["hello"] = "world"
-	print "set hello -> world"
-print "dbsize = ", r.dbsize()
-print "get hello ->", r.get("hello")
+r = redis.Redis(host="localhost", port=6379, db=1)
 
-r.save()
+r.hsetnx("Test", "ID", 1001)
+b = r.hget("Test", "ID")
+print b, type(b)
+r.delete("Test")
 
-'''
-pool = redis.ConnectionPool(host="localhost", port=6379, db=1)
-r = redis.Redis(connection_pool=pool)
-print r
-print r.info()
-print r.get("hello")
-print r.dbsize()
-'''
+

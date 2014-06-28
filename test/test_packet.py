@@ -33,6 +33,7 @@ data = {
 }
 
 sBuff = wafer.PackNet(1, "c2s_login", data)
+print sBuff
 sNew = wafer.UnpackNet(1, sBuff)
 print sNew
 print data
