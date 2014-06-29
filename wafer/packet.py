@@ -11,16 +11,25 @@ import json
 
 
 """
-协议格式：
-+--------+-------+--------+
-|   id   |  len  |  body  |
-+--------+-------+--------+
+协议数据包的格式：
++----------+----------+----------+
+| crypt(1) |  len(2)  |   body   |
++----------+----------+----------+
+1.crypt：1byte，body是否加密，0：未加密，1：加密
+2.len：2byte，body的长度
+3.body：协议内容
+
+其中body的格式如下：
++----------+----------+----------+
+|  id(2)   |  len(2)  |   body   |
++----------+----------+----------+
 
 1.id：2byte，协议编号，唯一标示
 2.len：2byte，body的长度
 3.body：协议的二进制内容
 """
-PACKET_HEAD_LEN		= 4
+PACKET_HEAD_LEN		= 3 #包头的长度
+PROTOCOL_HEAD_LEN   = 4 #协议头的长度
 PACKET_MAX_SIZE		= 2 ** 16
 
 
@@ -33,7 +42,7 @@ BASIC_TYPE = {
 
 
 
-class CWritePacket:
+class CProtocolWriter:
 	def __init__(self, iProtoID=0):
 		self.m_ProtoID = iProtoID
 		self.m_Length = 0
@@ -41,6 +50,7 @@ class CWritePacket:
 
 
 	def __WriteString__(self, sValue, bList=False):
+		print "__WriteString__", sValue, bList
 		if not self.m_ProtoID:
 			return
 		if bList:
@@ -59,6 +69,7 @@ class CWritePacket:
 
 
 	def __WriteNumber__(self, sType, sValue, bList=False):
+		print "__WriteNumber__", sType, sValue, bList
 		if not self.m_ProtoID or not sType in BASIC_TYPE:
 			return
 		if bList:
@@ -107,6 +118,7 @@ class CWritePacket:
 
 
 	def Write(self, sType, sValue, bList=False):
+		print "<<<Write>>>", sType, sValue, bList
 		if not self.m_ProtoID:
 			return
 		if sType == "string":
@@ -130,7 +142,7 @@ class CWritePacket:
 
 
 
-class CReadPacket:
+class CProtocolReader:
 	def __init__(self, data):
 		self.m_Offset = 0
 		self.m_Data = data
@@ -231,9 +243,9 @@ class CReadPacket:
 
 
 
-if not "g_ReadPacket" in globals():
-	g_ReadPacket = CReadPacket("")
-	g_WritePacket = CWritePacket()
+if not "g_ProtocolReader" in globals():
+	g_ProtocolReader = CProtocolReader("")
+	g_ProtocolWriter = CProtocolWriter()
 	g_Name2ID = {}
 	g_ProtoCfg = {}
 	g_CustomType = {}
@@ -257,27 +269,41 @@ def InitNetProto(sProtoFile, sTypeFile=None):
 		g_CustomType = json.load(open(sTypeFile, "r"))
 
 
-#读数据
-def UnpackProto(sBuff):
-	#解析包头，判断数据有效性
+#解析网络包
+def UnpackNet(iConnID, sBuff):
 	if len(sBuff) <= PACKET_HEAD_LEN:
 		return
-	try :
-		iProtoID, iLen = struct.unpack("!HH", sBuff[:PACKET_HEAD_LEN])
+	#解析网络包
+	try:
+		iCrypt, iPackLen = struct.unpack("!BH", sBuff[:PACKET_HEAD_LEN])
 	except Exception, err:
 		log.Fatal(str(err))
 		return
-	if len(sBuff) < PACKET_HEAD_LEN + iLen:
-		log.Fatal("[UnpackNet] the packet is not full! iProtocolID=%s,iLen=%s,Data=%s" % (iProtoID, iLen, sBuff))
+	if len(sBuff) < PACKET_HEAD_LEN + iPackLen:
 		return
-	sMetaData = sBuff[PACKET_HEAD_LEN : PACKET_HEAD_LEN + iLen]
+	#包体，协议数据部分
+	sProtoBuff = sBuff[PACKET_HEAD_LEN : PACKET_HEAD_LEN + iPackLen]
+	#解密
+	if iCrypt:
+		sProtoBuff = Decrypt(iConnID, sProtoBuff)
+	#判断数据有效性
+	if not sProtoBuff or len(sProtoBuff) <= PROTOCOL_HEAD_LEN:
+		return
+	try :
+		iProtoID, iProtoLen = struct.unpack("!HH", sProtoBuff[:PROTOCOL_HEAD_LEN])
+	except Exception, err:
+		log.Fatal(str(err))
+		return
+	if len(sProtoBuff) < PROTOCOL_HEAD_LEN + iProtoLen:
+		return
+	sMetaData = sProtoBuff[PROTOCOL_HEAD_LEN : PROTOCOL_HEAD_LEN + iProtoLen]
 	dProtoCfg = g_ProtoCfg.get(iProtoID, None)
 	if not dProtoCfg:
 		#本服务器没有此协议的定义，不解包
-		return "default", iLen, sMetaData
+		return "default", iPackLen, sMetaData
 
 	#将数据加载到读内存中
-	g_ReadPacket.__init__(sMetaData)
+	g_ProtocolReader.__init__(sMetaData)
 	#按照指定的协议格式进行解包
 	sProtoName = dProtoCfg["name"]
 	if not dProtoCfg:
@@ -289,15 +315,15 @@ def UnpackProto(sBuff):
 		bList = False
 		if len(tArg) >= 3:
 			bList = tArg[2]
-		sArgValue = g_ReadPacket.Read(sArgType, bList)
+		sArgValue = g_ProtocolReader.Read(sArgType, bList)
 		if sArgValue is None:
 			log.Fatal("[UnpackNet] protocol %d is error at (%s, %s)" % (iProtoID, sArgName, sArgType))
 			return
 		dProtocol[sArgName] = sArgValue
-	return sProtoName, iLen, dProtocol
+	return sProtoName, iPackLen, dProtocol
 
 
-#写数据
+#打包协议
 def PackProto(sProtoName, dProtocol):
 	"""
 	压包，将源数据按照iIndex的协议格式进行压包
@@ -307,7 +333,7 @@ def PackProto(sProtoName, dProtocol):
 	"""
 	#准备
 	iProtoID = g_Name2ID[sProtoName]
-	g_WritePacket.__init__(iProtoID)
+	g_ProtocolWriter.__init__(iProtoID)
 	#按照协议进行打包
 	dProtoCfg = g_ProtoCfg[iProtoID]
 	if not dProtoCfg:
@@ -323,33 +349,51 @@ def PackProto(sProtoName, dProtocol):
 			bList = tArg[2]
 		if not bList:
 			sValue = dProtocol[sName]
-			if not g_WritePacket.Write(sType, sValue):
+			if not g_ProtocolWriter.Write(sType, sValue):
 				log.Fatal("[PacketNet] protocol %d write failed at (%s,%s,%s)" % (iProtoID, sName, sType, sValue))
 				return
 		else:
 			sValueList = dProtocol[sName]
-			g_WritePacket.Write("uint8", len(sValueList))
+			g_ProtocolWriter.Write("uint8", len(sValueList))
 			for sValue in sValueList:
-				if not g_WritePacket.Write(sType, sValue):
+				if not g_ProtocolWriter.Write(sType, sValue):
 					log.Fatal("[PacketNet] protocol %d write failed at (%s,%s,%s)" % (iProtoID, sName, sType, sValue))
 					return
-	sData = g_WritePacket.Pack()
-	return sData
+	return g_ProtocolWriter.Pack()
 
 
-#直接打包
-def PackData(iProtoID, sData):
-	return struct.pack("!HH", iProtoID, len(sData)) + sData
+#直接打包协议
+def PackData(iProtoID, sBuff):
+	if not sBuff:
+		return
+	return struct.pack("HH", iProtoID, len(sBuff)) + sBuff
+
+
+#打包整个网络包
+def PackNet(sBuff, bCrypt, *args):
+	if not sBuff:
+		return
+	if bCrypt:
+		sBuff = Encrypt(args[0], sBuff)
+		if not sBuff:
+			return
+	return struct.pack("!BH", int(bCrypt), len(sBuff)) + sBuff
 
 
 #数据加密
 def Encrypt(iConnID, sBuff):
+	if not iConnID or not sBuff:
+		return
 	return sBuff
+
 
 #数据解密
 def Decrypt(iConnID, sBuff):
+	if not iConnID or not sBuff:
+		return
 	return sBuff
 
 
+
 __all__ = ["PACKET_HEAD_LEN", "BASIC_TYPE", "InitNetProto",
-           "PackProto", "UnpackProto", "Encrypt", "Decrypt", "PackData"]
+           "PackProto", "PackNet", "PackData", "UnpackNet"]

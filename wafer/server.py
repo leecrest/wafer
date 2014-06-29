@@ -241,20 +241,38 @@ def CallRpcClient(sRpcName, sClientName, key, *args, **kwargs):
 
 #=======================================================================================================================
 #发送数据包
-def PackSend(iConnID, sProtoName, dProtocol):
-	if type(iConnID) == int:
-		CServer().m_NetNode.SendData(iConnID, sProtoName, dProtocol)
-	elif type(iConnID) in (tuple, list):
-		for iConn in iConnID:
-			CServer().m_NetNode.SendData(iConn, sProtoName, dProtocol)
+def PackSend(iConnID, sProtoName, dProtocol, bCrypt=True):
+	"""
+	发送网络协议。非前端服务器不允许加密发送
+	:param iConnID: 客户端链接编号，可以是int，也可以是list
+	:param sProtoName: 协议名称
+	:param dProtocol: 协议内容
+	:param bCrypt: 是否加密发送
+	:return:
+	"""
+	if not iConnID or not sProtoName or not dProtocol:
+		return
+	app = CServer()
+	if not app.m_bFrontEnd and bCrypt:
+		bCrypt = False
+	app.m_NetNode.SendData(iConnID, sProtoName, dProtocol, bCrypt)
 
 
-def PackTrans(iConnID, iProtoID, sData):
-	if type(iConnID) == int:
-		CServer().m_NetNode.SendTrans(iConnID, iProtoID, sData)
-	elif type(iConnID) in (tuple, list):
-		for iConn in iConnID:
-			CServer().m_NetNode.SendTrans(iConn, iProtoID, sData)
+def PackTrans(iConnID, iProtoID, sData, bCrypt=True):
+	"""
+	转发网络协议，用于进行服务器之间的协议转发。非前端服务器不允许加密发送
+	:param iConnID: 客户端链接编号，可以是int，也可以是list
+	:param iProtoID: 协议编号
+	:param sData: 协议内容
+	:param bCrypt: 是否加密发送
+	:return:
+	"""
+	if not iConnID or not iProtoID or not sData:
+		return
+	app = CServer()
+	if not app.m_bFrontEnd and bCrypt:
+		bCrypt = False
+	app.m_NetNode.SendTrans(iConnID, iProtoID, sData, bCrypt)
 
 
 def CreateServer(sName, dConfig):

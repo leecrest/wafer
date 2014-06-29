@@ -52,32 +52,25 @@ class CNetConnection(protocol.Protocol):
 		"""
 		if not self.transport.connected or not data:
 			return
-		sProto, dProto = data[0], data[1]
-		if type(dProto) == str:
-			sData = packet.PackData(sProto, dProto)
-		elif type(dProto) == dict:
-			sData = packet.PackProto(sProto, dProto)
-		else:
-			return
-		reactor.callFromThread(self.transport.write, sData)
+		reactor.callFromThread(self.transport.write, data)
 
 
 	def DataHandleCoroutine(self):
+		iConnID = self.GetConnID()
 		#获取协议头的长度
-		iLength = packet.PACKET_HEAD_LEN
 		while True:
 			data = yield
 			self.m_Buff += data
-			while self.m_Buff.__len__() >= iLength:
-				unpack = packet.UnpackProto(self.m_Buff)
-				if not unpack:
-					log.Fatal("illegal data package -- [%s]"%unpack)
+			while self.m_Buff.__len__() >= packet.PACKET_HEAD_LEN:
+				PackInfo = packet.UnpackNet(iConnID, self.m_Buff)
+				if not PackInfo:
+					log.Fatal("illegal data package -- [%s]" % PackInfo)
 					self.transport.loseConnection()
 					break
-				sProtoName, iPackLen, dPackData = unpack
-				log.Info("recv %s/%d from %d" % (sProtoName, iPackLen, self.GetConnID()))
-				self.m_Buff = self.m_Buff[iLength + iPackLen:]
-				d = self.factory.DataReceived(self.GetConnID(), sProtoName, dPackData)
+				sProtoName, iPackLen, dProtoData = PackInfo
+				self.m_Buff = self.m_Buff[packet.PACKET_HEAD_LEN + iPackLen:]
+				log.Info("recv %s/%d from %d" % (sProtoName, iPackLen, iConnID))
+				d = self.factory.DataReceived(self.GetConnID(), sProtoName, dProtoData)
 				if not d:
 					continue
 				d.addCallback(self.SendData)
@@ -139,41 +132,82 @@ class CNetFactory(protocol.ServerFactory):
 		conn.transport.loseConnection()
 
 
-	def SendData(self, iConnID, sProtoName, dProtocol):
+	def SendData(self, iConnID, sProtoName, dProtocol, bCrypt=True):
 		"""
 		向指定链接的客户端，发送指定协议
 		:param iConnID: 客户端链接编号
 		:param sProtoName: 协议名称
 		:param dProtocol: 协议数据源
+		:param bCrypt: 是否加密
 		:return:
 		"""
-		if not dProtocol:
+		if not iConnID or not sProtoName or not dProtocol:
 			return
-		conn = self.m_ConnDict.get(iConnID, None)
-		if not conn:
+		#打包协议
+		sBuff = packet.PackProto(sProtoName, dProtocol)
+		if not sBuff:
 			return
-		data = packet.PackProto(sProtoName, dProtocol)
-		conn.SendData(data)
+		#打包成网络包并发送
+		if type(iConnID) == int:
+			oConn = self.m_ConnDict.get(iConnID, None)
+			if not oConn:
+				return
+			oConn.SendData(packet.PackNet(sBuff, bCrypt, iConnID))
+		elif type(iConnID) in (tuple, list):
+			if bCrypt:
+				for iConn in iConnID:
+					oConn = self.m_ConnDict.get(iConn, None)
+					if not oConn:
+						continue
+					oConn.SendData(packet.PackNet(iConnID, sBuff, bCrypt))
+			else:
+				sBuff = packet.PackNet(sBuff, bCrypt)
+				if not sBuff:
+					return
+				for iConn in iConnID:
+					oConn = self.m_ConnDict.get(iConn, None)
+					if not oConn:
+						continue
+					oConn.SendData(sBuff)
 
 
-	def SendTrans(self, iConnID, iProtoID, sData):
+	def SendTrans(self, iConnID, iProtoID, sData, bCrypt=True):
 		"""
 		发送中转协议包，不需要按照本地协议规则进行打包
 		:param iConnID: 客户端ID
 		:param iProtoID: 协议编号
 		:param sData: 协议数据
+		:param bCrypt: 是否加密
 		:return:
 		"""
-		if not sData:
+		if not iConnID or not iProtoID or not sData:
 			return
-		conn = self.m_ConnDict.get(iConnID, None)
-		if not conn:
+		#打包协议
+		sBuff = packet.PackData(iProtoID, sData)
+		if not sBuff:
 			return
-		#打包数据
-		data = packet.PackData(iProtoID, sData)
-		#加密
-		#发送
-		conn.SendData(data)
+		#打包成网络包并发送
+		if type(iConnID) == int:
+			oConn = self.m_ConnDict.get(iConnID, None)
+			if not oConn:
+				return
+			oConn.SendData(packet.PackNet(sBuff, bCrypt, iConnID))
+		elif type(iConnID) in (tuple, list):
+			if bCrypt:
+				for iConn in iConnID:
+					oConn = self.m_ConnDict.get(iConn, None)
+					if not oConn:
+						continue
+					oConn.SendData(packet.PackNet(iConnID, sBuff, bCrypt))
+			else:
+				sBuff = packet.PackNet(sBuff, bCrypt)
+				if not sBuff:
+					return
+				for iConn in iConnID:
+					oConn = self.m_ConnDict.get(iConn, None)
+					if not oConn:
+						continue
+					oConn.SendData(sBuff)
 
 
 
