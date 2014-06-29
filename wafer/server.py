@@ -56,7 +56,6 @@ class CServer(object):
 		self.m_bFrontEnd    = False
 		self.m_State        = SERVER_STATE_NONE
 		self.m_LogPath      = ""
-		self.m_DataBase     = None
 		self.m_RedisNode    = None
 		self.m_RpcDict      = {}
 		self.m_NetType      = NET_TYPE_TCP
@@ -109,9 +108,6 @@ class CServer(object):
 
 		#RPC初始化
 		dRpcList = dConfig.get("rpc", [])
-		#if not dRpcList:
-		#	log.Fatal("Server(%s) need config about rpc" % self.m_Name)
-		#	return
 		for dRpcCfg in dRpcList:
 			sRpcName = dRpcCfg["name"]
 			if dRpcCfg.get("server", False):
@@ -136,11 +132,6 @@ class CServer(object):
 			)
 			log.Info("Server(%s) start redis" % self.m_Name)
 
-
-		#数据库初始化
-		#dCfg = dConfig.get("db", None)
-		#if dCfg:
-		#	self.m_DataBase = wafer.db.CreateDB(dCfg)
 
 		#每个进程配置init选项，启动时将加载此文件
 		sInitFile = dConfig.get("init", None)
