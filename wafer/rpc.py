@@ -23,8 +23,7 @@ if not "g_ClientDict" in globals():
 def CreateRpcClient(sClientName, sServerName):
 	global g_ClientDict
 	if sServerName in g_ClientDict:
-		print "CreateRpcClient err, %s is existed in %s!" % (sServerName, g_ClientDict.keys())
-		raise "ERROR"
+		raise "CreateRpcClient err, %s is existed in %s!" % (sServerName, g_ClientDict.keys())
 	oClient = CRpcClient(sClientName, sServerName)
 	g_ClientDict[sServerName] = oClient
 	return oClient
@@ -93,8 +92,8 @@ class CRpcClient(object):
 		self.m_Name     = sClientName
 		self.m_Server   = sServerName
 		self.m_Factory  = pb.PBClientFactory()
-		self.m_Local    = CClientService("%s.Local"%self.m_Name)   #提供给服务端调用的服务
-		self.m_Remote   = CService("%s.Remote"%self.m_Name)        #调用服务端函数的回调
+		self.m_Local    = CClientService("%s.Local" % self.m_Name)   #提供给服务端调用的服务
+		self.m_Remote   = CService("%s.Remote" % self.m_Name)        #调用服务端函数的回调
 		self.m_Address  = None
 
 
