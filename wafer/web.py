@@ -134,7 +134,10 @@ class CDelaySite(Site):
 
 
 class CWebSite(resource.Resource):
-	pass
+
+	def render(self, request):
+		data = self.OnRender(request.args)
+		return data
 
 
 

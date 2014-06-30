@@ -101,7 +101,7 @@ class CServer(object):
 		if dWebCfg:
 			self.m_WebNode = vhost.NameVirtualHost()
 			sHost = dWebCfg.get("url", "127.0.0.1")
-			self.m_WebNode.addHost(sHost, "./")
+			self.m_WebNode.addHost(sHost, vhost.VHostMonsterResource())
 			reactor.listenTCP(dWebCfg["port"], web.CDelaySite(self.m_WebNode))
 			log.Info("Server(%s) listen web port at %s:%d" % (self.m_Name, sHost, dWebCfg["port"]))
 
