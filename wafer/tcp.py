@@ -211,6 +211,11 @@ class CNetFactory(protocol.ServerFactory):
 
 
 
+def CreateServer(sName, sHost, iPort):
+	obj = CNetFactory(sName, sHost, iPort)
+	reactor.listenTCP(iPort, obj)
+	return obj
 
 
-__all__ = ["CNetConnection", "CNetFactory"]
+
+__all__ = ["CreateServer",]

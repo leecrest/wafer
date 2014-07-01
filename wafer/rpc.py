@@ -20,12 +20,13 @@ if not "g_ClientDict" in globals():
 	g_ClientDict = {}
 
 
-def CreateRpcClient(sClientName, sServerName):
+def CreateRpcClient(sClientName, sServerName, tAddress):
 	global g_ClientDict
 	if sServerName in g_ClientDict:
 		raise "CreateRpcClient err, %s is existed in %s!" % (sServerName, g_ClientDict.keys())
 	oClient = CRpcClient(sClientName, sServerName)
 	g_ClientDict[sServerName] = oClient
+	oClient.Connect(tAddress)
 	return oClient
 
 
@@ -152,9 +153,10 @@ if not "g_ServerDict" in globals():
 	g_ServerDict = {}
 
 
-def CreateRpcServer(sName):
+def CreateRpcServer(sName, iPort):
 	root = CRpcServer(sName)
 	g_ServerDict[sName] = root
+	reactor.listenTCP(iPort, CRpcFactory(root))
 	return root
 
 
@@ -277,5 +279,8 @@ class CRpcServer(pb.Root):
 		self.m_Remote.Execute(key, sClient, bSuccess, result)
 
 
+	def GetClientList(self):
+		return self.m_ClientDict.keys()
 
-__all__ = ["CreateRpcClient", "CreateRpcServer", "CRpcFactory"]
+
+__all__ = ["CreateRpcClient", "CreateRpcServer",]

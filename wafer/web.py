@@ -6,10 +6,9 @@
 """
 
 from twisted.web.server import Request,Site
-from twisted.internet import defer
-from twisted.web import http,html
+from twisted.internet import defer, reactor
+from twisted.web import http,html,resource,vhost
 from twisted.python import reflect
-from twisted.web import resource
 from twisted.web.error import UnsupportedMethod
 from twisted.web.microdom import escape
 import wafer.log as log
@@ -140,5 +139,11 @@ class CWebSite(resource.Resource):
 		return data
 
 
+def CreateWebServer(sHost, iPort):
+	oWebNode = vhost.NameVirtualHost()
+	oWebNode.addHost(sHost, vhost.VHostMonsterResource())
+	reactor.listenTCP(iPort, CDelaySite(oWebNode))
+	return oWebNode
 
-__all__ = ["CDelaySite", "CWebSite"]
+
+__all__ = ["CreateWebServer", "CWebSite"]

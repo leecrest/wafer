@@ -27,12 +27,8 @@ import：["xxxx","yyyy"]，初始化服务器时加载的文件列表
 
 
 from twisted.internet import reactor
-from twisted.web import vhost
 from wafer.utils import *
 import wafer.log as log
-import wafer.tcp as tcp
-import wafer.rpc as rpc
-import wafer.web as web
 
 
 #服务器状态
@@ -56,16 +52,14 @@ class CServer(object):
 		self.m_bFrontEnd    = False
 		self.m_State        = SERVER_STATE_NONE
 		self.m_LogPath      = ""
-		self.m_RedisNode    = None
 		self.m_RpcDict      = {}
 		self.m_NetType      = NET_TYPE_TCP
-		self.m_NetNode      = None
-		self.m_WebNode      = None
 		self.m_Handler      = {}
+		self.m_Modules      = {}
 
 
-	def GetRedis(self):
-		return self.m_RedisNode
+	def GetModule(self, sName):
+		return self.m_Modules.get(sName, None)
 
 
 	def InitConfig(self, sName, dConfig):
@@ -87,9 +81,9 @@ class CServer(object):
 				return
 			sNetType = dNetCfg["type"].lower()
 			if sNetType == NET_TYPE_TCP:
+				import wafer.tcp
 				self.m_NetType = NET_TYPE_TCP
-				self.m_NetNode = tcp.CNetFactory(self.m_Name, dNetCfg["host"], dNetCfg["port"])
-				reactor.listenTCP(dNetCfg["port"], self.m_NetNode)
+				self.m_Modules["net"] = wafer.tcp.CreateServer(self.m_Name, dNetCfg["host"], dNetCfg["port"])
 				log.Info("%s(%s) listen at %d" % (self.m_Name, sNetType, dNetCfg["port"]))
 			elif sNetType == NET_TYPE_HTTP:
 				self.m_NetType = NET_TYPE_HTTP
@@ -99,38 +93,46 @@ class CServer(object):
 		#初始化web
 		dWebCfg = dConfig.get("web", None)
 		if dWebCfg:
-			self.m_WebNode = vhost.NameVirtualHost()
+			import wafer.web
 			sHost = dWebCfg.get("url", "127.0.0.1")
-			self.m_WebNode.addHost(sHost, vhost.VHostMonsterResource())
-			reactor.listenTCP(dWebCfg["port"], web.CDelaySite(self.m_WebNode))
+			self.m_Modules["web"] = wafer.web.CreateWebServer(sHost, dWebCfg["port"])
 			log.Info("Server(%s) listen web port at %s:%d" % (self.m_Name, sHost, dWebCfg["port"]))
 
 
 		#RPC初始化
 		dRpcList = dConfig.get("rpc", [])
-		for dRpcCfg in dRpcList:
-			sRpcName = dRpcCfg["name"]
-			if dRpcCfg.get("server", False):
-				oRpcNode = rpc.CreateRpcServer(sRpcName)
-				reactor.listenTCP(dRpcCfg["port"], rpc.CRpcFactory(oRpcNode))
-				log.Info("%s(rpc) listen at %d" % (sRpcName, dRpcCfg["port"]))
-			else:
-				oRpcNode = rpc.CreateRpcClient(self.m_Name, sRpcName)
-				log.Info("%s create rpc_client to %s" % (self.m_Name, sRpcName))
-				tAddress = (dRpcCfg["host"], dRpcCfg["port"])
-				oRpcNode.Connect(tAddress)
-			self.m_RpcDict[sRpcName] = oRpcNode
+		if dRpcList:
+			import wafer.rpc
+			for dRpcCfg in dRpcList:
+				sRpcName = dRpcCfg["name"]
+				if dRpcCfg.get("server", False):
+					oRpcNode = wafer.rpc.CreateRpcServer(sRpcName, dRpcCfg["port"])
+					log.Info("%s(rpc) listen at %d" % (sRpcName, dRpcCfg["port"]))
+				else:
+					tAddress = (dRpcCfg["host"], dRpcCfg["port"])
+					oRpcNode = wafer.rpc.CreateRpcClient(self.m_Name, sRpcName, tAddress)
+					log.Info("%s create rpc_client to %s" % (self.m_Name, sRpcName))
+				self.m_RpcDict[sRpcName] = oRpcNode
 
 		#redis
 		dCfg = dConfig.get("redis", None)
 		if dCfg:
 			import redis
-			self.m_RedisNode = redis.Redis(
+			self.m_Modules["redis"] = redis.Redis(
 				host=dCfg.get("host", "localhost"),
 			    port=dCfg.get("port", 6379),
 			    db=dCfg.get("db", 0),
 			)
 			log.Info("Server(%s) start redis" % self.m_Name)
+
+		#eye
+		dCfg = dConfig.get("eye", None)
+		if dCfg:
+			import wafer.eye
+			if dCfg.get("server", False):
+				self.m_Modules["eye"] = wafer.eye.CEyeServer(self.m_Name, dCfg)
+			else:
+				self.m_Modules["eye"] = wafer.eye.CEyeClient(self.m_Name, dCfg)
 
 
 		#每个进程配置init选项，启动时将加载此文件
@@ -140,11 +142,12 @@ class CServer(object):
 			self.m_Handler["ServerStart"] = mod.ServerStart
 		if hasattr(mod, "ServerStop"):
 			self.m_Handler["ServerStop"] = mod.ServerStop
-		if self.m_NetType == NET_TYPE_TCP and self.m_NetNode:
+		if self.m_NetType == NET_TYPE_TCP:
+			oNetNode = self.m_Modules["net"]
 			if hasattr(mod, "ConnectionLost"):
-				self.m_NetNode.GetService().SetCallback("__OnConnectionLost", mod.ConnectionLost)
+				oNetNode.GetService().SetCallback("__OnConnectionLost", mod.ConnectionLost)
 			if hasattr(mod, "ConnectionMade"):
-				self.m_NetNode.GetService().SetCallback("__OnConnectionMade", mod.ConnectionMade)
+				oNetNode.GetService().SetCallback("__OnConnectionMade", mod.ConnectionMade)
 		self.m_State = SERVER_STATE_INIT
 		log.Info("Server(%s) init success!" % self.m_Name)
 
@@ -195,7 +198,7 @@ class CServer(object):
 #=======================================================================================================================
 #初始化函数
 def InitWeb(dConfig):
-	svr = CServer().m_WebNode
+	svr = CServer().GetModule("web")
 	if not svr:
 		return
 	for sName, oSite in dConfig.iteritems():
@@ -203,7 +206,8 @@ def InitWeb(dConfig):
 
 
 def InitNetService(dConfig, cbDefault):
-	svr = CServer().m_NetNode.GetService()
+	obj = CServer().GetModule("net")
+	svr = obj.GetService()
 	svr.SetCallbacks(dConfig)
 	svr.SetDefaultCallback(cbDefault)
 
@@ -255,7 +259,8 @@ def PackSend(iConnID, sProtoName, dProtocol, bCrypt=True):
 	app = CServer()
 	if not app.m_bFrontEnd and bCrypt:
 		bCrypt = False
-	app.m_NetNode.SendData(iConnID, sProtoName, dProtocol, bCrypt)
+	obj = app.GetModule("net")
+	obj.SendData(iConnID, sProtoName, dProtocol, bCrypt)
 
 
 def PackTrans(iConnID, iProtoID, sData, bCrypt=True):
@@ -272,7 +277,8 @@ def PackTrans(iConnID, iProtoID, sData, bCrypt=True):
 	app = CServer()
 	if not app.m_bFrontEnd and bCrypt:
 		bCrypt = False
-	app.m_NetNode.SendTrans(iConnID, iProtoID, sData, bCrypt)
+	obj = app.GetModule("net")
+	obj.SendTrans(iConnID, iProtoID, sData, bCrypt)
 
 
 def CreateServer(sName, dConfig):
