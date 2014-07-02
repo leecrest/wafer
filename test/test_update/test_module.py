@@ -6,4 +6,4 @@
 """
 
 #NAME = "I am NAME"
-NAME2 = "haha"
+NAME2 = "I am NAME2"

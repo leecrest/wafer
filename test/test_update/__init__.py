@@ -8,18 +8,18 @@
 import os, sys
 
 #载入测试
-import test_module
+#import test_module
 #from test_module import *
-#import test_module as a
+import test_module as a
 
 #更新前做一些事情
-print "模块内容：", dir(test_module)
+print u"模块内容：", dir(a)
 
 print "="*50
-print "准备更新"
+print u"准备更新"
 os.system("pause")
 
-x = test_module.NAME
+x = a.NAME
 print x
 #===========================================================================
 #开始更新
@@ -38,10 +38,10 @@ else:
 
 
 #===========================================================================
-print "更新完成"
+print u"更新完成"
 print "="*50
-print "开始更新检查"
+print u"开始更新检查"
 
-print "模块内容：", dir(new)
-print test_module.NAME, test_module.NAME2
+print u"模块内容：", dir(new)
+print a.NAME, a.NAME2
 print x

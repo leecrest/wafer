@@ -68,6 +68,12 @@ class CServer(object):
 		self.m_Name = sName
 		#服务器配置
 		self.m_bFrontEnd = dConfig.get("frontend", False)
+		#执行根目录
+		sPath = dConfig.get("path", None)
+		if sPath:
+			import os
+			os.chdir(sPath)
+			log.Info("server(%s) change root path to (%s)" % (self.m_Name, sPath))
 
 		#日志路径
 		self.m_LogPath = dConfig.get("log", "./")
@@ -77,7 +83,7 @@ class CServer(object):
 		if self.m_bFrontEnd:
 			dNetCfg = dConfig.get("net", None)
 			if not dNetCfg:
-				log.Fatal("Server(%s) need config about network" % self.m_Name)
+				log.Fatal("server(%s) need config about network" % self.m_Name)
 				return
 			sNetType = dNetCfg["type"].lower()
 			if sNetType == NET_TYPE_TCP:
@@ -96,7 +102,7 @@ class CServer(object):
 			import wafer.web
 			sHost = dWebCfg.get("url", "127.0.0.1")
 			self.m_Modules["web"] = wafer.web.CreateWebServer(sHost, dWebCfg["port"])
-			log.Info("Server(%s) listen web port at %s:%d" % (self.m_Name, sHost, dWebCfg["port"]))
+			log.Info("server(%s) listen web port at %s:%d" % (self.m_Name, sHost, dWebCfg["port"]))
 
 
 		#RPC初始化
@@ -123,16 +129,7 @@ class CServer(object):
 			    port=dCfg.get("port", 6379),
 			    db=dCfg.get("db", 0),
 			)
-			log.Info("Server(%s) start redis" % self.m_Name)
-
-		#eye
-		dCfg = dConfig.get("eye", None)
-		if dCfg:
-			import wafer.eye
-			if dCfg.get("server", False):
-				self.m_Modules["eye"] = wafer.eye.CEyeServer(self.m_Name, dCfg)
-			else:
-				self.m_Modules["eye"] = wafer.eye.CEyeClient(self.m_Name, dCfg)
+			log.Info("server(%s) start redis" % self.m_Name)
 
 
 		#每个进程配置init选项，启动时将加载此文件
@@ -143,13 +140,14 @@ class CServer(object):
 		if hasattr(mod, "ServerStop"):
 			self.m_Handler["ServerStop"] = mod.ServerStop
 		if self.m_NetType == NET_TYPE_TCP:
-			oNetNode = self.m_Modules["net"]
-			if hasattr(mod, "ConnectionLost"):
-				oNetNode.GetService().SetCallback("__OnConnectionLost", mod.ConnectionLost)
-			if hasattr(mod, "ConnectionMade"):
-				oNetNode.GetService().SetCallback("__OnConnectionMade", mod.ConnectionMade)
+			oNetNode = self.m_Modules.get("net", None)
+			if oNetNode:
+				if hasattr(mod, "ConnectionLost"):
+					oNetNode.GetService().SetCallback("__OnConnectionLost", mod.ConnectionLost)
+				if hasattr(mod, "ConnectionMade"):
+					oNetNode.GetService().SetCallback("__OnConnectionMade", mod.ConnectionMade)
 		self.m_State = SERVER_STATE_INIT
-		log.Info("Server(%s) init success!" % self.m_Name)
+		log.Info("server(%s) init success!" % self.m_Name)
 
 
 	@staticmethod
@@ -165,10 +163,10 @@ class CServer(object):
 
 	def Start(self):
 		if self.m_State == SERVER_STATE_NONE:
-			log.Fatal("Server need init first")
+			log.Fatal("server need init first")
 			return
 		elif self.m_State == SERVER_STATE_START:
-			log.Fatal("Server(%s) already started" % self.m_Name)
+			log.Fatal("server(%s) already started" % self.m_Name)
 			return
 		log.Info("Server(%s) start now" % self.m_Name)
 		reactor.callLater(1, self.ServerStart)
@@ -183,10 +181,10 @@ class CServer(object):
 
 	def Stop(self):
 		if self.m_State != SERVER_STATE_START:
-			log.Fatal("Server(%s) has not started, cannot stop!" % self.m_Name)
+			log.Fatal("server(%s) has not started, cannot stop!" % self.m_Name)
 			return
 		self.m_State = SERVER_STATE_STOP
-		log.Info("Server(%s) stopped!" % self.m_Name)
+		log.Info("server(%s) stopped!" % self.m_Name)
 		cbFunc = self.m_Handler.get("ServerStop", None)
 		if cbFunc:
 			cbFunc(self)

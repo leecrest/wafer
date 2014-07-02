@@ -4,6 +4,7 @@
 @time   : 14-1-14 上午12:01
 @brief  : 通用函数集合
 """
+import sys
 import copy
 import random
 
@@ -47,6 +48,28 @@ class CSingleton(type):
 		return cls.instance
 
 
+#加载、重新加载
+def Reload(sRoot, sFile):
+	"""
+	热更新某个代码文件
+	:param sRoot: 服务器主路径，根目录名称
+	:param sFile: 需要更新的文件路径，相对服务器根目录的绝对路径
+	:return:
+	"""
+	if not sFile:
+		return
+	if sFile.endswith(".__init__"):
+		sFile = sFile[:-9]
+	sModName = "%s/%s" % (sRoot, sFile)
+	if sModName in sys.modules:
+		mod = reload(sFile)
+	else:
+		mod = __import__(sFile)
+	sList = sFile.split(".")
+	for sItem in sList[1:]:
+		mod = getattr(mod, sItem)
+	return mod
+
 
 def CopyList(iList):
 	return iList[:]
@@ -65,3 +88,6 @@ def RandomList(iList):
 		return
 	iPos = random.randint(0, len(iList)-1)
 	return iList[iPos]
+
+
+
