@@ -50,7 +50,7 @@ class CProtocolWriter:
 
 
 	def __WriteString__(self, sValue, bList=False):
-		print "__WriteString__", sValue, bList
+		#print "__WriteString__", sValue, bList
 		if not self.m_ProtoID:
 			return
 		if bList:
@@ -69,7 +69,7 @@ class CProtocolWriter:
 
 
 	def __WriteNumber__(self, sType, sValue, bList=False):
-		print "__WriteNumber__", sType, sValue, bList
+		#print "__WriteNumber__", sType, sValue, bList
 		if not self.m_ProtoID or not sType in BASIC_TYPE:
 			return
 		if bList:
@@ -118,7 +118,7 @@ class CProtocolWriter:
 
 
 	def Write(self, sType, sValue, bList=False):
-		print "<<<Write>>>", sType, sValue, bList
+		#print "<<<Write>>>", sType, sValue, bList
 		if not self.m_ProtoID:
 			return
 		if sType == "string":
