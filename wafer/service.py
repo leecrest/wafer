@@ -67,12 +67,9 @@ class CService():
 		try:
 			if self.m_iRunStyle == self.RUN_STYLE_SINGLE:
 				if cbFunc != self.m_Default:
-					defer_data = cbFunc(*args, **kwargs)
+					ret = cbFunc(*args, **kwargs)
 				else:
-					defer_data = cbFunc(key, *args, **kwargs)
-				if defer_data:
-					ret = defer.Deferred()
-					ret.callback(defer_data)
+					ret = cbFunc(key, *args, **kwargs)
 			else:
 				if cbFunc != self.m_Default:
 					ret = threads.deferToThread(cbFunc, *args, **kwargs)

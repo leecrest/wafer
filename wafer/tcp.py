@@ -70,11 +70,7 @@ class CNetConnection(protocol.Protocol):
 				sProtoName, iPackLen, dProtoData = PackInfo
 				self.m_Buff = self.m_Buff[packet.PACKET_HEAD_LEN + iPackLen:]
 				log.Info("recv %s/%d from %d" % (sProtoName, iPackLen, iConnID))
-				d = self.factory.DataReceived(self.GetConnID(), sProtoName, dProtoData)
-				if not d:
-					continue
-				d.addCallback(self.SendData)
-				d.addErrback(DefferedErrorHandle)
+				self.factory.DataReceived(self.GetConnID(), sProtoName, dProtoData)
 
 
 	def dataReceived(self, data):
@@ -121,7 +117,10 @@ class CNetFactory(protocol.ServerFactory):
 
 	def DataReceived(self, iConnID, sProtoName, data):
 		"""数据到达时的处理"""
-		return self.m_Service.Execute(sProtoName, iConnID, data)
+		ret = self.m_Service.Execute(sProtoName, iConnID, data)
+		if not ret or len(ret) < 2:
+			return
+		self.SendData(iConnID, ret[0], ret[1])
 
 
 	def LoseConnection(self, iConnID):

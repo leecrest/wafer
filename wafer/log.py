@@ -82,28 +82,38 @@ def InitLog(dConfig):
 	logging.basicConfig(filename=sFile, level=iLevel, filemode="w", format=sFormat)
 
 
-def Info(sMsg):
+def Info(sMsg, *args):
+	if args:
+		sMsg = sMsg % args
 	logging.getLogger().info(sMsg)
 	print "[Info]", sMsg
 
 
-def Debug(sMsg):
+def Debug(sMsg, *args):
+	if args:
+		sMsg = sMsg % args
 	logging.getLogger().debug(sMsg)
 	print "[Debug]", sMsg
 
 
-def Error(sMsg):
+def Error(sMsg, *args):
+	if args:
+		sMsg = sMsg % args
 	logging.getLogger().error(sMsg)
 	print "[Error]", sMsg
 
 
-def Fatal(sMsg):
+def Fatal(sMsg, *args):
+	if args:
+		sMsg = sMsg % args
 	logging.getLogger().critical(sMsg)
 	print "[Fatal]", sMsg
 
 
 #模块日志
-def LogFile(sFile, sMsg):
+def LogFile(sFile, sMsg, *args):
+	if args:
+		sMsg = sMsg % args
 	CLogFileMgr().Write(sFile, sMsg)
 
 

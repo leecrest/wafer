@@ -24,9 +24,9 @@ def CreateRpcClient(sClientName, sServerName, tAddress):
 	global g_ClientDict
 	if sServerName in g_ClientDict:
 		raise "CreateRpcClient err, %s is existed in %s!" % (sServerName, g_ClientDict.keys())
-	oClient = CRpcClient(sClientName, sServerName)
+	oClient = CRpcClient(sClientName, sServerName, tAddress)
 	g_ClientDict[sServerName] = oClient
-	oClient.Connect(tAddress)
+	oClient.Connect()
 	return oClient
 
 
@@ -70,6 +70,16 @@ def ReConnectServer(sName):
 	oClient.ReConnect()
 
 
+class CClientFactory(pb.PBClientFactory):
+	def __init__(self, sName):
+		pb.PBClientFactory.__init__(self)
+		self.m_Name = sName
+
+	def clientConnectionLost(self, connector, reason, reconnecting=0):
+		pb.PBClientFactory.clientConnectionLost(self, connector, reason, reconnecting)
+		log.Info(u"和RPC[%s]的链接断开了，尝试重连...", self.m_Name)
+		ReConnectServer(self.m_Name)
+
 
 #=======================================================================================================================
 class CClientService(pb.Referenceable):
@@ -89,13 +99,13 @@ class CRpcClient(object):
 	"""RPC客户端，可以调用服务器上的函数"""
 	m_bServer = False
 
-	def __init__(self, sClientName, sServerName):
+	def __init__(self, sClientName, sServerName, tAddress):
 		self.m_Name     = sClientName
 		self.m_Server   = sServerName
-		self.m_Factory  = pb.PBClientFactory()
+		self.m_Factory  = CClientFactory(sServerName)
 		self.m_Local    = CClientService("%s.Local" % self.m_Name)   #提供给服务端调用的服务
 		self.m_Remote   = CService("%s.Remote" % self.m_Name)        #调用服务端函数的回调
-		self.m_Address  = None
+		self.m_Address  = tAddress
 
 
 	def Name(self):
@@ -111,14 +121,12 @@ class CRpcClient(object):
 		self.m_Remote.SetCallbacks(dConfig)
 
 
-	def Connect(self, addr):
+	def Connect(self):
 		"""
 		连接到RPC服务器
-		@param addr:地址，格式：(ip, port)，如("127.0.0.1", 12345)
 		@return:
 		"""
-		self.m_Address = (str(addr[0]), int(addr[1]))
-		reactor.connectTCP(addr[0], addr[1], self.m_Factory)
+		reactor.connectTCP(self.m_Address[0], self.m_Address[1], self.m_Factory)
 		log.Info("%s(rpc) try connect to %s%s" % (self.m_Name, self.m_Server, self.m_Address))
 		#向RPC服务器注册自己的服务列表，方便服务器调用
 		oDefer = self.m_Factory.getRootObject()
@@ -128,7 +136,7 @@ class CRpcClient(object):
 
 	def ReConnect(self):
 		"""重新连接"""
-		self.Connect(self.m_Address)
+		self.Connect()
 
 
 	def CallServer(self, key, *args, **kw):

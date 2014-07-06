@@ -373,7 +373,7 @@ def PackData(iProtoID, sBuff):
 def PackNet(sBuff, bCrypt, *args):
 	if not sBuff:
 		return
-	if bCrypt:
+	if bCrypt and len(args) > 0:
 		sBuff = Encrypt(args[0], sBuff)
 		if not sBuff:
 			return
@@ -383,14 +383,14 @@ def PackNet(sBuff, bCrypt, *args):
 #数据加密
 def Encrypt(iConnID, sBuff):
 	if not iConnID or not sBuff:
-		return
+		return sBuff
 	return sBuff
 
 
 #数据解密
 def Decrypt(iConnID, sBuff):
 	if not iConnID or not sBuff:
-		return
+		return sBuff
 	return sBuff
 
 

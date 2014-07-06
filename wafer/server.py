@@ -205,6 +205,8 @@ def InitWeb(dConfig):
 
 def InitNetService(dConfig, cbDefault):
 	obj = CServer().GetModule("net")
+	if not obj:
+		return
 	svr = obj.GetService()
 	svr.SetCallbacks(dConfig)
 	svr.SetDefaultCallback(cbDefault)
@@ -258,6 +260,8 @@ def PackSend(iConnID, sProtoName, dProtocol, bCrypt=True):
 	if not app.m_bFrontEnd and bCrypt:
 		bCrypt = False
 	obj = app.GetModule("net")
+	if not obj:
+		return
 	obj.SendData(iConnID, sProtoName, dProtocol, bCrypt)
 
 
@@ -276,6 +280,8 @@ def PackTrans(iConnID, iProtoID, sData, bCrypt=True):
 	if not app.m_bFrontEnd and bCrypt:
 		bCrypt = False
 	obj = app.GetModule("net")
+	if not obj:
+		return
 	obj.SendTrans(iConnID, iProtoID, sData, bCrypt)
 
 

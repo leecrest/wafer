@@ -1,0 +1,10 @@
+{
+    "root" : "D:\\MyPan\\Server\\DemoServer\\数值表",
+    "out" : "D:\\MyPan\\Server\\DemoServer\\trunk\\game\\data",
+    "file" : {
+        "角色数据.xlsx" : {
+            "角色数据" : {"name":"role_config", "left":0, "top":1}
+        }
+    }
+
+}
