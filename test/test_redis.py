@@ -7,11 +7,7 @@
 
 import redis
 
-r = redis.Redis(host="localhost", port=6379, db=1)
-
-r.hsetnx("Test", "ID", 1001)
-b = r.hget("Test", "ID")
-print b, type(b)
-r.delete("Test")
+r = redis.Redis(host="localhost", port=6379, db=2)
+print r.hget("role", 1101)
 
 

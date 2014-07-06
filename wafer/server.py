@@ -295,8 +295,14 @@ def GetServer():
 	return CServer()
 
 
+def GetModule(sName):
+	app = CServer()
+	return app.GetModule(sName)
+
+
+
 __all__ = ["PackSend", "PackTrans", "CallRpcClient", "CallRpcServer",
            "InitWeb", "InitNetService", "InitRpcClient", "InitRpcServer",
-           "CreateServer", "GetServer"]
+           "CreateServer", "GetServer", "GetModule"]
 
 
