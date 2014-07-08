@@ -7,10 +7,12 @@
 
 #主进程为Master，其余服务器在子进程中启动
 
-import wafer.server
+
 import json
 import subprocess
 import traceback
+import wafer
+
 
 if __name__ == "__main__":
 	try:
@@ -24,7 +26,7 @@ if __name__ == "__main__":
 			cmd = "python %s %s %s" % ("launch.py", sName, sConfigFile)
 			subprocess.Popen(cmd)
 		#启动主服务器
-		app = wafer.server.CreateServer("master", dConfig["master"])
+		app = wafer.CreateServer("master", dConfig["master"])
 		app.Start()
 	except Exception, e:
 		print "="*20, "Error", "="*20

@@ -26,8 +26,9 @@ if __name__ == "__main__":
 		if len(args) < 3:
 			print u"启动参数错误：", args
 			raise "args(%s) error" % args
+		sName = args[1]
 		dConfig = json.load(open(args[2], "r"))
-		app = wafer.server.CreateServer(args[1], dConfig)
+		app = wafer.server.CreateServer(sName, dConfig[sName])
 		app.Start()
 	except Exception, e:
 		print "="*20, "Error", "="*20

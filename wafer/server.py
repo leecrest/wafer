@@ -71,8 +71,9 @@ class CServer(object):
 		#执行根目录
 		sPath = dConfig.get("path", None)
 		if sPath:
-			import os
+			import os, sys
 			os.chdir(sPath)
+			sys.path.insert(0, sPath)
 			log.Info("server(%s) change root path to (%s)" % (self.m_Name, sPath))
 
 		#日志路径
