@@ -11,7 +11,7 @@ import wafer.log as log
 import wafer.packet as packet
 
 reactor = reactor
-
+CONN_ID_MIN = 1
 
 def DefferedErrorHandle(e):
 	"""延迟对象的错误处理"""
@@ -29,21 +29,23 @@ class CNetConnection(protocol.Protocol):
 
 
 	def GetConnID(self):
-		return self.transport.sessionno
+		#说明，编号本身是从0开始的，不方便，容易出现判断错误的情况
+		return self.transport.sessionno + CONN_ID_MIN
 
 
 	def connectionMade(self):
 		"""建立连接后的处理"""
 		log.Info("Client %d login at [%s,%d]" % (
-			self.transport.sessionno, self.transport.client[0], self.transport.client[1]))
+			self.transport.sessionno + CONN_ID_MIN, self.transport.client[0], self.transport.client[1]))
 		self.factory.ConnectionMade(self)
 		self.m_DataHandler = self.DataHandleCoroutine()
 		self.m_DataHandler.next()
 
 
 	def connectionLost(self, reason=protocol.connectionDone):
-		log.Info("Client %d logout" % self.transport.sessionno)
-		self.factory.ConnectionLost(self.transport.sessionno)
+		iConnID = self.GetConnID()
+		log.Info("Client %d logout" % iConnID)
+		self.factory.ConnectionLost(iConnID)
 
 
 	def SendData(self, data):

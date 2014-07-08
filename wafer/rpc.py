@@ -38,14 +38,15 @@ def CallServerRequest(oRemote, sFuncName, *args, **kw):
 	return oRemote.callRemote(sFuncName, *args, **kw)
 
 
-def CallServerResult(result, bSuccess, sName, key):
+def CallServerResult(result, bSuccess, sName, key, *args, **kw):
 	"""服务端反馈，将反馈转发给sName客户端"""
 	oClient = g_ClientDict.get(sName, None)
 	if not oClient:
 		return
 	if not bSuccess:
-		log.Info("CallFailed(%s, %d):%s" % (sName, key, result))
-	oClient.CallResult(key, bSuccess, result)
+		log.Info("CallFailed(%s, %s):%s" % (sName, key, result))
+		return
+	oClient.CallResult(key, result, *args, **kw)
 
 
 #=======================================================================================================================
@@ -143,13 +144,13 @@ class CRpcClient(object):
 		"""远程调用服务端上的接口"""
 		oDefer = self.m_Factory.getRootObject()
 		oDefer.addCallback(CallServerRequest, "CallService", self.m_Name, key, *args, **kw)
-		oDefer.addCallback(CallServerResult, True, self.m_Server, key)
+		oDefer.addCallback(CallServerResult, True, self.m_Server, key, *args, **kw)
 		oDefer.addErrback(CallServerResult, False, self.m_Server, key)
 
 
-	def CallResult(self, key, bSuccess, result):
+	def CallResult(self, key, result, *args, **kw):
 		"""远程调用的结果"""
-		self.m_Remote.Execute(key, bSuccess, result)
+		self.m_Remote.Execute(key, result, *args, **kw)
 
 
 
@@ -168,14 +169,15 @@ def CreateRpcServer(sName, iPort):
 	return root
 
 
-def CallClientResult(result, bSuccess, sServer, sClient, key):
+def CallClientResult(result, bSuccess, sServer, sClient, key, *args, **kw):
 	global g_ServerDict
 	root = g_ServerDict.get(sServer, None)
 	if not root:
 		return
 	if not bSuccess:
 		log.Error("call rpc_client(%s, %s) failed, %s" % (sClient, key, result.getErrorMessage()))
-	root.CallResult(bSuccess, sClient, key, result)
+		return
+	root.CallResult(sClient, key, result, *args, **kw)
 
 
 
@@ -278,13 +280,13 @@ class CRpcServer(pb.Root):
 			return
 		oClient = self.m_ClientDict[sName]
 		oDefer = oClient.callRemote("CallService", key, *args, **kwargs)
-		oDefer.addCallback(CallClientResult, True, self.m_Name, sName, key)
+		oDefer.addCallback(CallClientResult, True, self.m_Name, sName, key, *args, **kwargs)
 		oDefer.addErrback(CallClientResult, False, self.m_Name, sName, key)
 		return oDefer
 
 
-	def CallResult(self, bSuccess, sClient, key, result=None):
-		self.m_Remote.Execute(key, sClient, bSuccess, result)
+	def CallResult(self, sClient, key, result, *args, **kw):
+		self.m_Remote.Execute(key, sClient, result, *args, **kw)
 
 
 	def GetClientList(self):

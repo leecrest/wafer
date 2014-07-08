@@ -5,6 +5,7 @@
 @brief  : 协议生成
 """
 
+import sys
 import os
 import json
 
@@ -37,6 +38,8 @@ def ScanPath(root, sExtName):
 
 def CreatePto(root, sOut, iMin, iMax):
 	data = ScanPath(root, PTO_EXT)
+	if not data:
+		return
 	if iMax > iMin and len(data) > iMax - iMin:
 		print u"协议文件数量已经超出了定制的协议长度"
 		return
@@ -60,9 +63,11 @@ def CreateType(root, sOut):
 
 
 if __name__ == "__main__":
-	sRoot = raw_input(u"请输入目录名称：")
+	sRoot = sys.argv[1]
+	iMin = int(sys.argv[2], 16)
+	iMax = int(sys.argv[3], 16)
 	os.chdir(sRoot)
-	os.system("rd /s /q proto_conf.json")
-	os.system("rd /s /q proto_type.json")
-	CreatePto("protocol/pto/", "proto_conf.json", 0x10, 0xFF)
-	CreateType("protocol/type/", "proto_type.json")
+	os.popen("rd /s /q protocol/proto_conf.json")
+	os.popen("rd /s /q protocol/proto_type.json")
+	CreatePto("protocol/pto/", "protocol/proto_conf.json", iMin, iMax)
+	CreateType("protocol/type/", "protocol/proto_type.json")

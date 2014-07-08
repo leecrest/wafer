@@ -8,6 +8,7 @@
 import wafer.log as log
 import struct
 import json
+import os
 
 
 """
@@ -97,19 +98,30 @@ class CProtocolWriter:
 				if not self.__WriteCustom__(sType, sItem):
 					return
 		else:
-			for tArg in g_CustomType[sType]:
+			tArgList = g_CustomType[sType]
+			if len(tArgList) != len(sValue):
+				return
+			iIndex = 0
+			for tArg in tArgList:
 				sArgName, sArgType = tArg[0], tArg[1]
 				bArgList = False
 				if len(tArg) >= 3:
 					bArgList = tArg[2]
+				if type(sValue) == list:
+					sArgVal = sValue[iIndex]
+					iIndex += 1
+				elif type(sValue) == dict:
+					sArgVal = sValue[sArgName]
+				else:
+					return
 				if sArgType == "string":
-					if not self.__WriteString__(sValue[sArgName], bArgList):
+					if not self.__WriteString__(sArgVal, bArgList):
 						return
 				elif sArgType in BASIC_TYPE:
-					if not self.__WriteNumber__(sArgType, sValue[sArgName], bArgList):
+					if not self.__WriteNumber__(sArgType, sArgVal, bArgList):
 						return
 				elif sArgType in g_CustomType:
-					if not self.__WriteCustom__(sArgType, sValue[sArgName], bArgList):
+					if not self.__WriteCustom__(sArgType, sArgVal, bArgList):
 						return
 				else:
 					return
@@ -260,12 +272,15 @@ def InitNetProto(sProtoFile, sTypeFile=None):
 	:return:
 	"""
 	global g_ProtoCfg, g_Name2ID, g_CustomType
-	data = json.load(open(sProtoFile, "r"))
-	g_Name2ID = data["Name2ID"]
-	g_ProtoCfg = {}
-	for k,v in data["PtoCfg"].iteritems():
-		g_ProtoCfg[int(k)] = v
-	if sTypeFile:
+	if os.path.exists(sProtoFile) and os.path.isfile(sProtoFile):
+		data = json.load(open(sProtoFile, "r"))
+		if data:
+			g_Name2ID = data.get("Name2ID", {})
+			g_ProtoCfg = {}
+			if data["PtoCfg"]:
+				for k,v in data["PtoCfg"].iteritems():
+					g_ProtoCfg[int(k)] = v
+	if sTypeFile and os.path.exists(sTypeFile) and os.path.isfile(sTypeFile):
 		g_CustomType = json.load(open(sTypeFile, "r"))
 
 
