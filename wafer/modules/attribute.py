@@ -31,8 +31,13 @@ class CAttrBase:
 			return
 		self.m_New = False
 		self.m_Inited = True
-		self.m_Data = {}
+		self.m_Data = None
+		self.OnClear()
 		self.Update()
+
+
+	def OnClear(self):
+		self.m_Data = {}
 
 
 	def Delete(self):
@@ -45,7 +50,7 @@ class CAttrBase:
 		self.m_Update = False
 
 
-	def Set(self, sKey, sValue):
+	def DictSet(self, sKey, sValue):
 		if not self.m_Inited:
 			return
 		if sKey in self.m_Data:
@@ -63,13 +68,13 @@ class CAttrBase:
 
 
 
-	def Get(self, sKey, default=None):
+	def DictGet(self, sKey, default=None):
 		if not self.m_Inited:
 			return
 		return self.m_Data.get(sKey, default)
 
 
-	def Del(self, sKey):
+	def DictDel(self, sKey):
 		if not self.m_Inited or not sKey in self.m_Data:
 			return
 		del self.m_Data[sKey]
@@ -79,11 +84,12 @@ class CAttrBase:
 	def Clear(self):
 		if not self.m_Inited:
 			return
-		self.m_Data = {}
+		self.m_Data = None
+		self.OnClear()
 		self.Update()
 
 
-	def Keys(self):
+	def DictKeys(self):
 		if not self.m_Inited:
 			return
 		return self.m_Data.keys()
