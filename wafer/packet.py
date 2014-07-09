@@ -264,24 +264,46 @@ if not "g_ProtocolReader" in globals():
 
 
 #以下为对外接口
-def InitNetProto(sProtoFile, sTypeFile=None):
+def InitNetProto(sProtoList, sTypeList=None):
 	"""
 	网络协议的初始化
-	:param sProtoFile:协议定义文件
-	:param sTypeFile:协议中的自定义类型定义文件
+	:param sProtoList:协议定义文件
+	:param sTypeList:协议中的自定义类型定义文件
 	:return:
 	"""
 	global g_ProtoCfg, g_Name2ID, g_CustomType
-	if os.path.exists(sProtoFile) and os.path.isfile(sProtoFile):
-		data = json.load(open(sProtoFile, "r"))
-		if data:
-			g_Name2ID = data.get("Name2ID", {})
-			g_ProtoCfg = {}
-			if data["PtoCfg"]:
-				for k,v in data["PtoCfg"].iteritems():
-					g_ProtoCfg[int(k)] = v
-	if sTypeFile and os.path.exists(sTypeFile) and os.path.isfile(sTypeFile):
-		g_CustomType = json.load(open(sTypeFile, "r"))
+	if type(sProtoList) == str:
+		sProtoList = [sProtoList,]
+	g_ProtoCfg = {}
+	g_Name2ID = {}
+	g_CustomType = {}
+	for sFile in sProtoList:
+		if not os.path.exists(sFile) or not os.path.isfile(sFile):
+			continue
+		data = json.load(open(sFile, "r"))
+		if not data:
+			continue
+		g_Name2ID.update(data["Name2ID"])
+		if data["PtoCfg"]:
+			for k,v in data["PtoCfg"].iteritems():
+				g_ProtoCfg[int(k)] = v
+
+	if not sTypeList:
+		return
+	if type(sTypeList) == str:
+		sTypeList = [sTypeList,]
+	for sFile in sTypeList:
+		if not os.path.exists(sFile) or not os.path.isfile(sFile):
+			continue
+		data = json.load(open(sFile, "r"))
+		if not data:
+			continue
+		g_CustomType.update(data)
+
+
+#根据协议名称获得协议编号
+def Name2ID(sName):
+	return g_Name2ID.get(sName, 0)
 
 
 #解析网络包
@@ -410,5 +432,5 @@ def Decrypt(iConnID, sBuff):
 
 
 
-__all__ = ["PACKET_HEAD_LEN", "BASIC_TYPE", "InitNetProto",
+__all__ = ["PACKET_HEAD_LEN", "BASIC_TYPE", "InitNetProto", "Name2ID",
            "PackProto", "PackNet", "PackData", "UnpackNet"]
