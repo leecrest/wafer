@@ -177,31 +177,27 @@ class CNetFactory(protocol.ServerFactory):
 		发送中转协议包，不需要按照本地协议规则进行打包
 		:param iConnID: 客户端ID
 		:param iProtoID: 协议编号
-		:param sData: 协议数据
+		:param sData: 协议数据，已经打包好的数据
 		:param bCrypt: 是否加密
 		:return:
 		"""
 		if not iConnID or not iProtoID or not sData:
-			return
-		#打包协议
-		sBuff = packet.PackData(iProtoID, sData)
-		if not sBuff:
 			return
 		#打包成网络包并发送
 		if type(iConnID) == int:
 			oConn = self.m_ConnDict.get(iConnID, None)
 			if not oConn:
 				return
-			oConn.SendData(packet.PackNet(sBuff, bCrypt, iConnID))
+			oConn.SendData(packet.PackNet(sData, bCrypt, iConnID))
 		elif type(iConnID) in (tuple, list):
 			if bCrypt:
 				for iConn in iConnID:
 					oConn = self.m_ConnDict.get(iConn, None)
 					if not oConn:
 						continue
-					oConn.SendData(packet.PackNet(iConnID, sBuff, bCrypt))
+					oConn.SendData(packet.PackNet(iConnID, sData, bCrypt))
 			else:
-				sBuff = packet.PackNet(sBuff, bCrypt)
+				sBuff = packet.PackNet(sData, bCrypt)
 				if not sBuff:
 					return
 				for iConn in iConnID:

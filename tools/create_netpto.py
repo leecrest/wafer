@@ -20,7 +20,7 @@ def ScanPath(root, sExtName):
 	for item in os.listdir(root):
 		sFull = os.path.join(root, item)
 		if os.path.isdir(sFull):
-			dSub = ScanPath(sFull, PTO_EXT)
+			dSub = ScanPath(sFull, sExtName)
 			if dSub:
 				data.update(dSub)
 		elif os.path.isfile(sFull):
@@ -32,7 +32,7 @@ def ScanPath(root, sExtName):
 			sData = f.read()
 			f.close()
 			data[sName] = eval(sData)
-			print "load pto", sFull, "... ok"
+			print "load", sFull, "... ok"
 	return data
 
 
@@ -69,5 +69,5 @@ if __name__ == "__main__":
 	os.chdir(sRoot)
 	os.popen("rd /s /q protocol/proto_conf.json")
 	os.popen("rd /s /q protocol/proto_type.json")
-	CreatePto("protocol/pto/", "protocol/proto_conf.json", iMin, iMax)
-	CreateType("protocol/type/", "protocol/proto_type.json")
+	CreatePto("protocol/", "protocol/proto_conf.json", iMin, iMax)
+	CreateType("protocol/", "protocol/proto_type.json")

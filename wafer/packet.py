@@ -107,7 +107,7 @@ class CProtocolWriter:
 				bArgList = False
 				if len(tArg) >= 3:
 					bArgList = tArg[2]
-				if type(sValue) == list:
+				if type(sValue) in (tuple, list):
 					sArgVal = sValue[iIndex]
 					iIndex += 1
 				elif type(sValue) == dict:
@@ -146,7 +146,7 @@ class CProtocolWriter:
 	def Pack(self):
 		if not self.m_ProtoID:
 			return
-		data = struct.pack("!HH", self.m_ProtoID, self.m_Length) + self.m_Data
+		data = struct.pack("HH", self.m_ProtoID, self.m_Length) + self.m_Data
 		self.m_ProtoID = 0
 		self.m_Length = 0
 		self.m_Data = ""
@@ -327,7 +327,7 @@ def UnpackNet(iConnID, sBuff):
 	if not sProtoBuff or len(sProtoBuff) <= PROTOCOL_HEAD_LEN:
 		return
 	try :
-		iProtoID, iProtoLen = struct.unpack("!HH", sProtoBuff[:PROTOCOL_HEAD_LEN])
+		iProtoID, iProtoLen = struct.unpack("HH", sProtoBuff[:PROTOCOL_HEAD_LEN])
 	except Exception, err:
 		log.Fatal(str(err))
 		return
@@ -400,10 +400,10 @@ def PackProto(sProtoName, dProtocol):
 
 
 #直接打包协议
-def PackData(iProtoID, sBuff):
-	if not sBuff:
-		return
-	return struct.pack("HH", iProtoID, len(sBuff)) + sBuff
+#def PackData(iProtoID, sBuff):
+#	if not sBuff:
+#		return
+#	return struct.pack("HH", iProtoID, len(sBuff)) + sBuff
 
 
 #打包整个网络包
@@ -433,4 +433,4 @@ def Decrypt(iConnID, sBuff):
 
 
 __all__ = ["PACKET_HEAD_LEN", "BASIC_TYPE", "InitNetProto", "Name2ID",
-           "PackProto", "PackNet", "PackData", "UnpackNet"]
+           "PackProto", "PackNet", "UnpackNet"]
