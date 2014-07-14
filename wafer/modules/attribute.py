@@ -12,10 +12,19 @@ class CAttrBase:
 	属性基类，连接数据表中的一行数据
 	"""
 	m_TableName = ""
+	m_AttrConfig = None
 
 	def __init__(self, iIndex):
 		self.m_ID       = iIndex
 		self.m_Redis    = wafer.GetModule("redis")
+		self.m_Inited   = False
+		self.m_Update   = False
+		self.m_New      = True
+		self.InitAttr()
+		self.Load()
+
+
+	def Load(self):
 		self.m_Data     = self.m_Redis.hget(self.m_TableName, self.m_ID)
 		if self.m_Data is None:
 			self.m_Inited = False
@@ -24,6 +33,21 @@ class CAttrBase:
 			self.m_Inited = True
 			self.m_New = False
 		self.m_Update = False
+
+
+	def InitAttr(self):
+		tBaseCfg = self.m_AttrConfig.get("BaseAttr", [])
+		for dAttrCfg in tBaseCfg:
+			self.DictSet(dAttrCfg["Name"], dAttrCfg["Default"])
+		tExtendCfg = self.m_AttrConfig.get("ExtendAttr", [])
+		for dAttrCfg in tExtendCfg:
+			self.DictSet(dAttrCfg["Name"], dAttrCfg["Default"])
+
+
+	def GetAttr(self, sName):
+		dName2ID = self.m_AttrConfig["Name2ID"]
+
+
 
 
 	def New(self):
@@ -106,6 +130,11 @@ class CAttrBase:
 			return
 		self.m_Redis.hset(self.m_TableName, self.m_ID, self.m_Data)
 		self.m_Update = False
+
+
+
+
+
 
 
 
