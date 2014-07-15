@@ -337,7 +337,7 @@ def UnpackNet(iConnID, sBuff):
 	dProtoCfg = g_ProtoCfg.get(iProtoID, None)
 	if not dProtoCfg:
 		#本服务器没有此协议的定义，不解包
-		return "default", iPackLen, sMetaData
+		return "default", iPackLen, {"ProtoID":iProtoID, "Data":sMetaData}
 
 	#将数据加载到读内存中
 	g_ProtocolReader.__init__(sMetaData)
@@ -359,6 +359,31 @@ def UnpackNet(iConnID, sBuff):
 		dProtocol[sArgName] = sArgValue
 	return sProtoName, iPackLen, dProtocol
 
+
+#解析元数据包
+def UnpackMetaData(iProtoID, sMetaData):
+	dProtoCfg = g_ProtoCfg.get(iProtoID, None)
+	if not dProtoCfg:
+		return
+	#将数据加载到读内存中
+	g_ProtocolReader.__init__(sMetaData)
+	#按照指定的协议格式进行解包
+	sProtoName = dProtoCfg["name"]
+	if not dProtoCfg:
+		log.Fatal("[UnpackNet] protocol %d is not supported" % iProtoID)
+		return
+	dProtocol = {}
+	for tArg in dProtoCfg["args"]:
+		sArgName, sArgType = tArg[0], tArg[1]
+		bList = False
+		if len(tArg) >= 3:
+			bList = tArg[2]
+		sArgValue = g_ProtocolReader.Read(sArgType, bList)
+		if sArgValue is None:
+			log.Fatal("[UnpackNet] protocol %d is error at (%s, %s)" % (iProtoID, sArgName, sArgType))
+			return
+		dProtocol[sArgName] = sArgValue
+	return sProtoName, dProtocol
 
 #打包协议
 def PackProto(sProtoName, dProtocol):
@@ -433,4 +458,4 @@ def Decrypt(iConnID, sBuff):
 
 
 __all__ = ["PACKET_HEAD_LEN", "BASIC_TYPE", "InitNetProto", "Name2ID",
-           "PackProto", "PackNet", "UnpackNet"]
+           "PackProto", "PackNet", "UnpackNet", "UnpackMetaData"]

@@ -66,15 +66,9 @@ class CService():
 		self.m_Lock.acquire()
 		try:
 			if self.m_iRunStyle == self.RUN_STYLE_SINGLE:
-				if cbFunc != self.m_Default:
-					ret = cbFunc(*args, **kwargs)
-				else:
-					ret = cbFunc(key, *args, **kwargs)
+				ret = cbFunc(*args, **kwargs)
 			else:
-				if cbFunc != self.m_Default:
-					ret = threads.deferToThread(cbFunc, *args, **kwargs)
-				else:
-					ret = threads.deferToThread(cbFunc, key, *args, **kwargs)
+				ret = threads.deferToThread(cbFunc, *args, **kwargs)
 		finally:
 			self.m_Lock.release()
 		return ret
